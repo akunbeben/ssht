@@ -95,7 +95,7 @@ func (m *model) visibleServerRows(height int) []string {
 	end := min(start+height, len(m.filtered))
 	rows := make([]string, 0, height)
 	for i := start; i < end; i++ {
-		rows = append(rows, renderServerRow(m.filtered[i], i == m.index, m.masked))
+		rows = append(rows, renderServerRow(m.filtered[i], m.profile.VPN, i == m.index, m.masked))
 	}
 	return padRows(rows, height)
 }

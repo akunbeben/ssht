@@ -19,12 +19,14 @@ const (
 	fieldUser
 	fieldKey
 	fieldTags
+	fieldVPNType
+	fieldVPNConf
 	fieldNote
 	fieldCount
 )
 
 var fieldLabels = [fieldCount]string{
-	"Name", "Host", "Port", "User", "Key", "Tags", "Note",
+	"Name", "Host", "Port", "User", "Key", "Tags", "VPN Type", "VPN Conf/URI", "Note",
 }
 
 var fieldPlaceholders = [fieldCount]string{
@@ -34,6 +36,8 @@ var fieldPlaceholders = [fieldCount]string{
 	"ubuntu",
 	"~/.ssh/id_ed25519",
 	"be,staging",
+	"wireguard (optional)",
+	"~/wg0.conf or ss://... (optional)",
 	"optional note",
 }
 
@@ -52,6 +56,7 @@ func newFormState(editing bool, s *config.Server) formState {
 		ti.CharLimit = 256
 		ti.PromptStyle = blurredInputStyle
 		ti.TextStyle = blurredInputStyle
+		ti.PlaceholderStyle = placeholderStyle
 		ti.Cursor.Style = cursorStyle
 		f.inputs[i] = ti
 	}
@@ -67,6 +72,10 @@ func newFormState(editing bool, s *config.Server) formState {
 		f.inputs[fieldUser].SetValue(s.User)
 		f.inputs[fieldKey].SetValue(s.KeyPath)
 		f.inputs[fieldTags].SetValue(strings.Join(s.Tags, ","))
+		if s.VPN != nil {
+			f.inputs[fieldVPNType].SetValue(s.VPN.Type)
+			f.inputs[fieldVPNConf].SetValue(s.VPN.ConfPath)
+		}
 		f.inputs[fieldNote].SetValue(s.Note)
 	}
 
@@ -154,6 +163,18 @@ func (f *formState) toServer() config.Server {
 	if id == "" {
 		id = uuid.NewString()
 	}
+
+	var vpnConf *config.VPNConf
+	vpnType := strings.TrimSpace(f.inputs[fieldVPNType].Value())
+	vpnPath := strings.TrimSpace(f.inputs[fieldVPNConf].Value())
+
+	if vpnType != "" || vpnPath != "" {
+		vpnConf = &config.VPNConf{
+			Type:     vpnType,
+			ConfPath: vpnPath,
+		}
+	}
+
 	return config.Server{
 		ID:      id,
 		Name:    strings.TrimSpace(f.inputs[fieldName].Value()),
@@ -161,6 +182,7 @@ func (f *formState) toServer() config.Server {
 		Port:    port,
 		User:    strings.TrimSpace(f.inputs[fieldUser].Value()),
 		KeyPath: strings.TrimSpace(f.inputs[fieldKey].Value()),
+		VPN:     vpnConf,
 		Tags:    tags,
 		Note:    strings.TrimSpace(f.inputs[fieldNote].Value()),
 	}

@@ -12,9 +12,10 @@ var (
 	warnStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
 	successStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 
-	formLabelStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true).Width(10)
+	formLabelStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true).Width(15).Align(lipgloss.Right).PaddingRight(1)
 	focusedInputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	blurredInputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	blurredInputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	placeholderStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	cursorStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 
 	profileActiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
