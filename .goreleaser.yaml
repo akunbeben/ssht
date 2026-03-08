@@ -1,0 +1,46 @@
+version: 2
+project_name: ssht
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/akunbeben/ssht/cmd.Version={{.Version}} -X github.com/akunbeben/ssht/cmd.Commit={{.Commit}} -X github.com/akunbeben/ssht/cmd.Date={{.Date}} -X github.com/akunbeben/ssht/cmd.BuiltBy=goreleaser
+
+archives:
+  - formats: [binary]
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*!?:.+$"
+      order: 0
+    - title: 'Bug fixes'
+      regexp: "^.*fix[(\\w)]*!?:.+$"
+      order: 1
+    - title: Others
+      order: 999
