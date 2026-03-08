@@ -20,12 +20,13 @@ var vpnDialCmd = &cobra.Command{
 		host, _ := cmd.Flags().GetString("host")
 		portStr, _ := cmd.Flags().GetString("port")
 		port, _ := strconv.Atoi(portStr)
+		vpnType, _ := cmd.Flags().GetString("type")
 
 		if conf == "" || host == "" {
 			return fmt.Errorf("missing required flags")
 		}
 
-		conn, err := vpn.Dial(conf, host, port)
+		conn, err := vpn.Dial(vpnType, conf, host, port)
 		if err != nil {
 			return err
 		}
@@ -47,7 +48,8 @@ var vpnDialCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(vpnDialCmd)
-	vpnDialCmd.Flags().String("conf", "", "WireGuard config path")
+	vpnDialCmd.Flags().String("conf", "", "VPN config path or URI")
 	vpnDialCmd.Flags().String("host", "", "Target host")
 	vpnDialCmd.Flags().String("port", "22", "Target port")
+	vpnDialCmd.Flags().String("type", "wireguard", "VPN type (wireguard, shadowsocks, trojan, openvpn)")
 }

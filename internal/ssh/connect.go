@@ -16,16 +16,28 @@ import (
 
 func BuildArgs(s config.Server, vpn *config.VPNConf) ([]string, error) {
 	args := []string{"ssh"}
-	if vpn != nil {
+
+	// Prioritize server-level VPN override
+	activeVPN := vpn
+	if s.VPN != nil {
+		activeVPN = s.VPN
+	}
+
+	if activeVPN != nil {
 		executable, err := os.Executable()
 		if err == nil {
 			// On Windows, paths in ProxyCommand need care with backslashes and quotes
-			confPath := vpn.ConfPath
+			confPath := activeVPN.ConfPath
 			if runtime.GOOS == "windows" {
 				confPath = strings.ReplaceAll(confPath, "\\", "/")
 			}
 
-			proxyCmd := fmt.Sprintf("\"%s\" vpn-dial --conf \"%s\" --host %%h --port %%p", executable, confPath)
+			vpnType := activeVPN.Type
+			if vpnType == "" {
+				vpnType = "wireguard"
+			}
+
+			proxyCmd := fmt.Sprintf("\"%s\" vpn-dial --type \"%s\" --conf \"%s\" --host %%h --port %%p", executable, vpnType, confPath)
 
 			// OpenSSH on Windows sometimes needs double escaping for ProxyCommand quotes
 			if runtime.GOOS == "windows" {

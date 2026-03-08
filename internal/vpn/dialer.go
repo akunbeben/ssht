@@ -23,7 +23,22 @@ func keyToHex(key string) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func Dial(confPath, host string, port int) (net.Conn, error) {
+func Dial(vpnType, confPath, host string, port int) (net.Conn, error) {
+	switch strings.ToLower(vpnType) {
+	case "wireguard", "wg", "":
+		return DialWireguard(confPath, host, port)
+	case "shadowsocks", "ss":
+		return DialShadowsocks(confPath, host, port)
+	case "trojan":
+		return DialTrojan(confPath, host, port)
+	case "openvpn", "ovpn":
+		return DialOpenVPN(confPath, host, port)
+	default:
+		return nil, fmt.Errorf("unsupported vpn type: %s", vpnType)
+	}
+}
+
+func DialWireguard(confPath, host string, port int) (net.Conn, error) {
 	confPath, err := config.ExpandHome(confPath)
 	if err != nil {
 		return nil, fmt.Errorf("expand home: %w", err)

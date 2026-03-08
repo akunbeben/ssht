@@ -31,6 +31,7 @@ type Server struct {
 	Port    int      `json:"port"`
 	User    string   `json:"user"`
 	KeyPath string   `json:"key_path"`
+	VPN     *VPNConf `json:"vpn,omitempty"`
 	Tags    []string `json:"tags"`
 	Note    string   `json:"note"`
 }
