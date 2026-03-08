@@ -3,6 +3,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/akunbeben/ssht)](https://goreportcard.com/report/github.com/akunbeben/ssht)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+![ssht Banner](assets/banner.jpeg)
+
 ssht is a high-performance SSH & VPN manager designed for speed, privacy, and true network isolation. It replaces the tedious mess of ~/.ssh/config and manual VPN toggling with a sleek Terminal UI (TUI).
 
 ## Key Features
