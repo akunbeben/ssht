@@ -136,7 +136,6 @@ func newSSConn(c net.Conn, method, password string) (net.Conn, error) {
 	}, nil
 }
 
-// Simplified EVP_BytesToKey for ShadowSocks
 func evpBytesToKey(password string, keyLen int) []byte {
 	var m []byte
 	prev := []byte{}
@@ -307,13 +306,4 @@ func incrementNonce(nonce []byte) {
 			break
 		}
 	}
-}
-
-type netRandomSource struct{}
-
-func (netRandomSource) Read(b []byte) (int, error) {
-	// Simple random source for salt, use crypto/rand in real world
-	// but keeping it simple for now.
-	// Actually, I should use crypto/rand.
-	return 0, nil // Placeholder, will fix
 }

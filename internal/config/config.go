@@ -6,14 +6,31 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-func ConfigPath() (string, error) {
+func ConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home dir: %w", err)
 	}
-	return filepath.Join(home, ".ssht", "config.json"), nil
+	return filepath.Join(home, ".ssht"), nil
+}
+
+func ConfigPath() (string, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.json"), nil
+}
+
+func ProfilesDir() (string, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "profiles"), nil
 }
 
 func Load() (*Config, error) {
@@ -21,8 +38,17 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o700); err != nil {
+	dir := filepath.Dir(cfgPath)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create config dir: %w", err)
+	}
+
+	pDir, err := ProfilesDir()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(pDir, 0o700); err != nil {
+		return nil, fmt.Errorf("create profiles dir: %w", err)
 	}
 
 	data, err := os.ReadFile(cfgPath)
@@ -39,15 +65,32 @@ func Load() (*Config, error) {
 
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		corruptPath := cfgPath + ".corrupt"
-		if writeErr := os.WriteFile(corruptPath, data, 0o600); writeErr != nil {
-			return nil, fmt.Errorf("invalid config json (%v) and failed to save corrupt backup: %w", err, writeErr)
+		return nil, fmt.Errorf("parse config.json: %w", err)
+	}
+
+	if cfg.Profiles == nil {
+		cfg.Profiles = make(map[string]Profile)
+	}
+
+	files, err := os.ReadDir(pDir)
+	if err == nil {
+		for _, f := range files {
+			if !f.IsDir() && filepath.Ext(f.Name()) == ".json" {
+				pPath := filepath.Join(pDir, f.Name())
+				pData, err := os.ReadFile(pPath)
+				if err != nil {
+					continue
+				}
+				var p Profile
+				if err := json.Unmarshal(pData, &p); err == nil {
+					name := strings.TrimSuffix(f.Name(), ".json")
+					if p.Name == "" {
+						p.Name = name
+					}
+					cfg.Profiles[name] = p
+				}
+			}
 		}
-		newCfg := defaultConfig()
-		if saveErr := Save(newCfg); saveErr != nil {
-			return nil, fmt.Errorf("invalid config json (%v) and failed to recreate default config: %w", err, saveErr)
-		}
-		return newCfg, nil
 	}
 
 	normalize(&cfg)
@@ -60,28 +103,57 @@ func Save(cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o700); err != nil {
+	dir := filepath.Dir(cfgPath)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 
-	if current, readErr := os.ReadFile(cfgPath); readErr == nil {
-		if err := os.WriteFile(cfgPath+".bak", current, 0o600); err != nil {
-			return fmt.Errorf("write backup config: %w", err)
+	pDir, err := ProfilesDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(pDir, 0o700); err != nil {
+		return fmt.Errorf("create profiles dir: %w", err)
+	}
+
+	globalCfg := *cfg
+	globalCfg.Profiles = nil
+
+	data, err := json.MarshalIndent(globalCfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal global config: %w", err)
+	}
+
+	if err := os.WriteFile(cfgPath, data, 0o600); err != nil {
+		return fmt.Errorf("write global config: %w", err)
+	}
+
+	// Save each profile and track active ones
+	activeProfiles := make(map[string]bool)
+	for name, p := range cfg.Profiles {
+		pPath := filepath.Join(pDir, name+".json")
+		activeProfiles[name+".json"] = true
+		pData, err := json.MarshalIndent(p, "", "  ")
+		if err != nil {
+			continue
+		}
+		if err := os.WriteFile(pPath, pData, 0o600); err != nil {
+			continue
 		}
 	}
 
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal config: %w", err)
+	// Cleanup deleted profiles from disk
+	files, err := os.ReadDir(pDir)
+	if err == nil {
+		for _, f := range files {
+			if !f.IsDir() && filepath.Ext(f.Name()) == ".json" {
+				if !activeProfiles[f.Name()] {
+					_ = os.Remove(filepath.Join(pDir, f.Name()))
+				}
+			}
+		}
 	}
 
-	tmpPath := cfgPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o600); err != nil {
-		return fmt.Errorf("write temp config: %w", err)
-	}
-	if err := os.Rename(tmpPath, cfgPath); err != nil {
-		return fmt.Errorf("replace config: %w", err)
-	}
 	return nil
 }
 

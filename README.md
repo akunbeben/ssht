@@ -9,15 +9,24 @@ ssht is a high-performance SSH & VPN manager designed for speed, privacy, and tr
 
 ## Key Features
 
-### Isolated VPN (Transparent Proxy)
-Unlike standard VPN tools that change your global network settings, ssht establishes a User-Space WireGuard tunnel exclusively for your SSH session.
-- Pure Isolation: The VPN only affects the SSH connection initiated by ssht. Your browser, Slack, and other apps stay on your local connection.
-- Zero Sudo: Works without root privileges. No more sudo wg-quick up.
-- Powered by gVisor: Uses a full userspace TCP/IP stack for maximum security and transparency.
+### Isolated VPN (Multi-Protocol Support)
+Unlike standard VPN tools that change your global network settings, ssht establishes a User-Space tunnel exclusively for your SSH session.
+- **Multiple Protocols**: Support for WireGuard, ShadowSocks, Trojan, and OpenVPN.
+- **Pure Isolation**: The VPN only affects the SSH connection initiated by ssht. Your browser, Slack, and other apps stay on your local connection.
+- **Zero Sudo**: Works without root privileges for most protocols.
+- **Powered by gVisor**: Uses a full userspace TCP/IP stack for maximum security and transparency.
+- **Per-Server Override**: Set specific VPN configurations for individual servers that override profile settings.
+
+### Multi-Device Sync (Git-based)
+Never lose your configuration again.
+- **Git Backend**: Sync your profiles across multiple devices using any Git remote (GitHub, GitLab, etc.).
+- **Modular Config**: Profiles are stored in separate files to minimize merge conflicts.
+- **Auto-Sync**: Automatically pulls changes on startup and pushes on exit if enabled.
+- **Secure**: Designed to work with Private Repositories to keep your host data safe.
 
 ### Privacy Masking (Default Persistent)
 Perfect for streaming, recording, or live demos. 
-- Press * to instantly mask sensitive Host IPs and Usernames.
+- Press * to instantly mask sensitive Host IPs, Usernames, and VPN configs.
 - Sticky Settings: Your masking preference is automatically saved to your config, so it's ready exactly how you left it.
 
 ### Smart Workflow
@@ -65,15 +74,37 @@ Download the raw binary for your platform from the [Latest Releases](https://git
 | p | Switch Profile |
 | a / e / d | Add / Edit / Delete server |
 | m | Move server between profiles |
-| v | Global System VPN (Manual Toggle) |
+| v | Toggle Profile-level VPN |
 | K | Pubkey Manager |
 | ? | Help Overlay |
 | q / Esc | Quit |
 
-## Configuration
+## Configuration & Sync
 
-Settings are stored in ~/.ssht/config.json. You can also use the CLI:
+Settings are stored in `~/.ssht/` (modularly). You can also use the CLI:
 
+### Multi-Device Synchronization
+1. **Setup**: Create a private Git repository and link it:
+   ```bash
+   ssht sync setup git@github.com:username/my-ssht-config.git
+   ```
+2. **Push/Pull**: 
+   ```bash
+   ssht sync push  # Manual push
+   ssht sync pull  # Manual pull
+   ```
+   *Note: ssht automatically performs these on TUI startup/exit if sync is setup.*
+
+### VPN Configurations
+SSHT supports various VPN protocols. You can configure them at the profile level or per-server.
+
+#### Supported URIs:
+- **WireGuard**: Path to `.conf` file.
+- **ShadowSocks**: `ss://method:password@host:port`
+- **Trojan**: `trojan://password@host:port?sni=server_name&allowInsecure=1`
+- **OpenVPN**: Path to `.ovpn` file (requires system binary).
+
+### Other Commands
 ```bash
 # Check version and build info
 ssht version

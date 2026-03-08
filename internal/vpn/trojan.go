@@ -44,14 +44,10 @@ func DialTrojan(confPath, host string, port int) (net.Conn, error) {
 		return nil, err
 	}
 
-	// Create Trojan request header
-	// 1. Password hash (56 bytes hex)
 	h := sha256.New()
 	h.Write([]byte(password))
 	passwordHash := hex.EncodeToString(h.Sum(nil))
 
-	// 2. Connect command (0x01)
-	// 3. Address type + Address + Port
 	var addr []byte
 	if ip := net.ParseIP(host); ip != nil {
 		if ip4 := ip.To4(); ip4 != nil {
@@ -64,7 +60,6 @@ func DialTrojan(confPath, host string, port int) (net.Conn, error) {
 	}
 	addr = append(addr, byte(port>>8), byte(port))
 
-	// Header: hash + CRLF + cmd + addr + CRLF
 	header := make([]byte, 0, 56+2+1+len(addr)+2)
 	header = append(header, []byte(passwordHash)...)
 	header = append(header, '\r', '\n')
