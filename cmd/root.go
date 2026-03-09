@@ -63,7 +63,7 @@ var rootCmd = &cobra.Command{
 				if action.Server == nil {
 					return errors.New("no server selected")
 				}
-				if err := ssh.Connect(*action.Server, profile.VPN); err != nil {
+				if err := ssh.Connect(*action.Server, profile.VPN, cfg.PrivacyMode); err != nil {
 					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 					fmt.Fprintf(os.Stderr, "Press Enter to continue...")
 					bufio.NewReader(os.Stdin).ReadString('\n')

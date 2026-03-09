@@ -14,8 +14,11 @@ import (
 	"github.com/akunbeben/ssht/internal/config"
 )
 
-func BuildArgs(s config.Server, vpn *config.VPNConf) ([]string, error) {
+func BuildArgs(s config.Server, vpn *config.VPNConf, privacyMode bool) ([]string, error) {
 	args := []string{"ssh"}
+	if privacyMode {
+		args = append(args, "-o", "LogLevel=ERROR", "-t")
+	}
 
 	// Prioritize server-level VPN override
 	activeVPN := vpn
@@ -63,19 +66,22 @@ func BuildArgs(s config.Server, vpn *config.VPNConf) ([]string, error) {
 	}
 
 	args = append(args, fmt.Sprintf("%s@%s", s.User, s.Host))
+	if privacyMode {
+		args = append(args, "clear; exec $SHELL -l")
+	}
 	return args, nil
 }
 
-func Connect(s config.Server, vpn *config.VPNConf) error {
-	return connectWithRetry(s, vpn, true)
+func Connect(s config.Server, vpn *config.VPNConf, privacyMode bool) error {
+	return connectWithRetry(s, vpn, privacyMode, true)
 }
 
-func connectWithRetry(s config.Server, vpn *config.VPNConf, allowRetry bool) error {
+func connectWithRetry(s config.Server, vpn *config.VPNConf, privacyMode bool, allowRetry bool) error {
 	sshPath, err := exec.LookPath("ssh")
 	if err != nil {
 		return fmt.Errorf("ssh not found in PATH: %w", err)
 	}
-	args, err := BuildArgs(s, vpn)
+	args, err := BuildArgs(s, vpn, privacyMode)
 	if err != nil {
 		return err
 	}
@@ -98,7 +104,7 @@ func connectWithRetry(s config.Server, vpn *config.VPNConf, allowRetry bool) err
 			fmt.Fprintf(os.Stderr, "\n[ssht] Notice: Host key for %s changed. Cleaning known_hosts...\n", s.Host)
 			_ = exec.Command("ssh-keygen", "-R", s.Host).Run()
 			fmt.Fprintf(os.Stderr, "[ssht] Retrying connection...\n\n")
-			return connectWithRetry(s, vpn, false)
+			return connectWithRetry(s, vpn, privacyMode, false)
 		}
 	}
 
