@@ -49,25 +49,11 @@ func DialWireguard(confPath, host string, port int) (net.Conn, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	var localIPs []netip.Addr
-	for _, addr := range cfg.Address {
-		if idx := strings.Index(addr, "/"); idx != -1 {
-			addr = addr[:idx]
-		}
-		if ip, err := netip.ParseAddr(addr); err == nil {
-			localIPs = append(localIPs, ip)
-		}
-	}
+	localIPs := parseAddresses(cfg.Address, true)
 	if len(localIPs) == 0 {
 		return nil, fmt.Errorf("no valid Address in [Interface]")
 	}
-
-	var dnsIPs []netip.Addr
-	for _, addr := range cfg.DNS {
-		if ip, err := netip.ParseAddr(addr); err == nil {
-			dnsIPs = append(dnsIPs, ip)
-		}
-	}
+	dnsIPs := parseAddresses(cfg.DNS, false)
 
 	tun, tnet, err := netstack.CreateNetTUN(localIPs, dnsIPs, cfg.MTU)
 	if err != nil {
@@ -76,27 +62,10 @@ func DialWireguard(confPath, host string, port int) (net.Conn, error) {
 
 	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, ""))
 
-	privHex, err := keyToHex(cfg.PrivateKey)
+	uapi, err := buildUAPI(cfg)
 	if err != nil {
 		dev.Close()
-		return nil, fmt.Errorf("invalid private key: %w", err)
-	}
-	uapi := fmt.Sprintf("private_key=%s\n", privHex)
-	for _, p := range cfg.Peers {
-		pubHex, err := keyToHex(p.PublicKey)
-		if err != nil {
-			continue // skip invalid peers
-		}
-		uapi += fmt.Sprintf("public_key=%s\n", pubHex)
-		if p.Endpoint != "" {
-			uapi += fmt.Sprintf("endpoint=%s\n", p.Endpoint)
-		}
-		if p.PersistentKeepalive > 0 {
-			uapi += fmt.Sprintf("persistent_keepalive_interval=%d\n", p.PersistentKeepalive)
-		}
-		for _, a := range p.AllowedIPs {
-			uapi += fmt.Sprintf("allowed_ip=%s\n", a)
-		}
+		return nil, err
 	}
 
 	if err := dev.IpcSet(uapi); err != nil {
@@ -122,6 +91,46 @@ func DialWireguard(confPath, host string, port int) (net.Conn, error) {
 	}
 
 	return &lazyClosingConn{Conn: conn, dev: dev}, nil
+}
+
+func parseAddresses(addrs []string, stripMask bool) []netip.Addr {
+	res := make([]netip.Addr, 0, len(addrs))
+	for _, addr := range addrs {
+		if stripMask {
+			if idx := strings.Index(addr, "/"); idx != -1 {
+				addr = addr[:idx]
+			}
+		}
+		if ip, err := netip.ParseAddr(addr); err == nil {
+			res = append(res, ip)
+		}
+	}
+	return res
+}
+
+func buildUAPI(cfg *Config) (string, error) {
+	privHex, err := keyToHex(cfg.PrivateKey)
+	if err != nil {
+		return "", fmt.Errorf("invalid private key: %w", err)
+	}
+	uapi := fmt.Sprintf("private_key=%s\n", privHex)
+	for _, p := range cfg.Peers {
+		pubHex, err := keyToHex(p.PublicKey)
+		if err != nil {
+			continue
+		}
+		uapi += fmt.Sprintf("public_key=%s\n", pubHex)
+		if p.Endpoint != "" {
+			uapi += fmt.Sprintf("endpoint=%s\n", p.Endpoint)
+		}
+		if p.PersistentKeepalive > 0 {
+			uapi += fmt.Sprintf("persistent_keepalive_interval=%d\n", p.PersistentKeepalive)
+		}
+		for _, a := range p.AllowedIPs {
+			uapi += fmt.Sprintf("allowed_ip=%s\n", a)
+		}
+	}
+	return uapi, nil
 }
 
 type lazyClosingConn struct {

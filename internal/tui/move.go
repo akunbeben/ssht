@@ -33,49 +33,52 @@ func (m *model) handleMoveKey(key string) (tea.Model, tea.Cmd) {
 	case "k", "up":
 		m.moveProfiles.moveWithMax(-1, otherCount)
 	case "enter":
-		selectedIdx := m.moveProfiles.index
-		realIdx := 0
-		selectedName := ""
-		for _, name := range m.moveProfiles.names {
-			if name == m.profileName {
-				continue
-			}
-			if realIdx == selectedIdx {
-				selectedName = name
-				break
-			}
-			realIdx++
-		}
-
-		if selectedName == "" {
-
-			m.moveNewName = newMoveProfileInput()
-			m.mode = modeMoveNewProfile
-			return m, nil
-		}
-
-		if selectedName == m.profileName {
-			cmd := m.setStatus("cannot move to current profile", dimStyle)
-			m.moveProfiles = nil
-			m.moveTarget = nil
-			m.mode = modeList
-			return m, cmd
-		}
-
-		targetProfile, ok := m.cfg.Profiles[selectedName]
-		if ok {
-			for _, s := range targetProfile.Servers {
-				if s.Name == m.moveTarget.Name {
-					m.moveTargetProfile = selectedName
-					m.mode = modeMoveConfirmOverwrite
-					return m, nil
-				}
-			}
-		}
-
-		return m.moveServerToProfile(selectedName)
+		return m.handleMoveSelection()
 	}
 	return m, nil
+}
+
+func (m *model) handleMoveSelection() (tea.Model, tea.Cmd) {
+	selectedIdx := m.moveProfiles.index
+	realIdx := 0
+	selectedName := ""
+	for _, name := range m.moveProfiles.names {
+		if name == m.profileName {
+			continue
+		}
+		if realIdx == selectedIdx {
+			selectedName = name
+			break
+		}
+		realIdx++
+	}
+
+	if selectedName == "" {
+		m.moveNewName = newMoveProfileInput()
+		m.mode = modeMoveNewProfile
+		return m, nil
+	}
+
+	if selectedName == m.profileName {
+		cmd := m.setStatus("cannot move to current profile", dimStyle)
+		m.moveProfiles = nil
+		m.moveTarget = nil
+		m.mode = modeList
+		return m, cmd
+	}
+
+	targetProfile, ok := m.cfg.Profiles[selectedName]
+	if ok {
+		for _, s := range targetProfile.Servers {
+			if s.Name == m.moveTarget.Name {
+				m.moveTargetProfile = selectedName
+				m.mode = modeMoveConfirmOverwrite
+				return m, nil
+			}
+		}
+	}
+
+	return m.moveServerToProfile(selectedName)
 }
 
 func (m *model) moveServerToProfile(targetName string) (tea.Model, tea.Cmd) {

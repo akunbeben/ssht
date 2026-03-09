@@ -170,6 +170,29 @@ func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 			status = "on"
 		}
 		return m, m.setStatus("✓ sensitive masking "+status, successStyle)
+	}
+
+	if cmd := m.handleNavigationKey(key); cmd != nil {
+		return m, cmd
+	}
+
+	if m.isNavigationKey(key) {
+		return m, nil
+	}
+
+	return m.handleActionKey(key)
+}
+
+func (m *model) isNavigationKey(key string) bool {
+	switch key {
+	case "j", "down", "k", "up", "home", "end", "pgdown", "ctrl+d", "pgup", "ctrl+u", "g", "G":
+		return true
+	}
+	return false
+}
+
+func (m *model) handleNavigationKey(key string) tea.Cmd {
+	switch key {
 	case "j", "down":
 		m.moveList(1)
 	case "k", "up":
@@ -193,18 +216,24 @@ func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		} else {
 			m.pendingG = true
 		}
-		return m, nil
 	case "G":
 		if len(m.filtered) > 0 {
 			m.index = len(m.filtered) - 1
 		}
 		m.pendingG = false
+	default:
+		return nil
+	}
+	return nil
+}
+
+func (m *model) handleActionKey(key string) (tea.Model, tea.Cmd) {
+	m.pendingG = false
+	switch key {
 	case "K":
-		m.pendingG = false
 		m.mode = modePubkey
 		m.refreshPubkeys()
 	case "v":
-		m.pendingG = false
 		if m.profile.VPN == nil {
 			m.vpnInput = newVPNInput()
 			m.mode = modeVPNConfig
@@ -216,7 +245,6 @@ func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		m.action = Action{Type: ActionToggleVPN}
 		return m, tea.Quit
 	case "enter":
-		m.pendingG = false
 		if len(m.filtered) == 0 {
 			return m, nil
 		}
@@ -224,16 +252,13 @@ func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		m.action = Action{Type: ActionConnect, Server: &sel}
 		return m, tea.Quit
 	case "a":
-		m.pendingG = false
 		m.clearStatus()
 		f := newFormState(false, nil)
 		m.form = &f
 		m.mode = modeForm
 	case "e":
-		m.pendingG = false
 		if len(m.filtered) == 0 {
-			cmd := m.setStatus("no server to edit", errorStyle)
-			return m, cmd
+			return m, m.setStatus("no server to edit", errorStyle)
 		}
 		m.clearStatus()
 		sel := m.filtered[m.index]
@@ -241,33 +266,26 @@ func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		m.form = &f
 		m.mode = modeForm
 	case "d":
-		m.pendingG = false
 		if len(m.filtered) == 0 {
-			cmd := m.setStatus("no server to delete", errorStyle)
-			return m, cmd
+			return m, m.setStatus("no server to delete", errorStyle)
 		}
 		sel := m.filtered[m.index]
 		m.deleteTarget = &sel
 		m.mode = modeConfirmDelete
 	case "p":
-		m.pendingG = false
 		if len(m.cfg.Profiles) <= 1 {
-			cmd := m.setStatus("only one profile available", dimStyle)
-			return m, cmd
+			return m, m.setStatus("only one profile available", dimStyle)
 		}
 		ps := newProfileSwitchState(m.cfg, m.profileName)
 		m.profileSwitch = &ps
 		m.mode = modeProfileSwitch
 	case "m":
-		m.pendingG = false
 		if len(m.filtered) == 0 {
-			cmd := m.setStatus("no server to move", errorStyle)
-			return m, cmd
+			return m, m.setStatus("no server to move", errorStyle)
 		}
 		sel := m.filtered[m.index]
 		m.moveTarget = &sel
 		if len(m.cfg.Profiles) <= 1 {
-
 			m.moveNewName = newMoveProfileInput()
 			m.mode = modeMoveNewProfile
 		} else {
@@ -275,8 +293,6 @@ func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 			m.moveProfiles = &ps
 			m.mode = modeMoveServer
 		}
-	default:
-		m.pendingG = false
 	}
 	return m, nil
 }

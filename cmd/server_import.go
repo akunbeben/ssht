@@ -372,10 +372,17 @@ func parseSSHCommand(line string) (importedServer, bool) {
 	if len(fields) == 0 || fields[0] != "ssh" {
 		return importedServer{}, false
 	}
-	fields = fields[1:]
 
-	port := 22
-	keyPath := ""
+	res, target, ok := parseSSHFlags(fields[1:])
+	if !ok {
+		return importedServer{}, false
+	}
+
+	return normalizeTarget(target, res)
+}
+
+func parseSSHFlags(fields []string) (importedServer, string, bool) {
+	res := importedServer{Port: 22}
 	target := ""
 	forcedUser := ""
 	nonInteractive := false
@@ -383,56 +390,56 @@ func parseSSHCommand(line string) (importedServer, bool) {
 		"-b": {}, "-c": {}, "-D": {}, "-E": {}, "-e": {}, "-F": {}, "-I": {}, "-J": {},
 		"-L": {}, "-m": {}, "-O": {}, "-o": {}, "-Q": {}, "-R": {}, "-S": {}, "-W": {}, "-w": {},
 	}
+
 	for i := 0; i < len(fields); i++ {
 		part := fields[i]
 		switch part {
 		case "-p", "-l", "-i":
 			if i+1 >= len(fields) {
-				return importedServer{}, false
+				return importedServer{}, "", false
 			}
-			next := fields[i+1]
+			val := fields[i+1]
 			switch part {
 			case "-p":
-				p, err := strconv.Atoi(next)
-				if err != nil {
-					return importedServer{}, false
+				if p, err := strconv.Atoi(val); err == nil {
+					res.Port = p
 				}
-				port = p
 			case "-l":
-				forcedUser = next
+				forcedUser = val
 			case "-i":
-				keyPath = next
+				res.KeyPath = val
 			}
 			i++
+		case "-T", "-N":
+			nonInteractive = true
 		default:
 			if strings.HasPrefix(part, "-") {
 				if _, ok := flagsWithValue[part]; ok && i+1 < len(fields) {
 					i++
-					continue
-				}
-				if part == "-T" || part == "-N" {
-					nonInteractive = true
-				}
-				if strings.HasPrefix(part, "-p") && len(part) > 2 {
-					p, err := strconv.Atoi(strings.TrimPrefix(part, "-p"))
-					if err == nil {
-						port = p
+				} else if strings.HasPrefix(part, "-p") && len(part) > 2 {
+					if p, err := strconv.Atoi(strings.TrimPrefix(part, "-p")); err == nil {
+						res.Port = p
 					}
 				}
 				continue
 			}
 			if target == "" {
 				target = part
-				continue
 			}
-
 		}
 	}
-	if target == "" || nonInteractive {
-		return importedServer{}, false
-	}
 
-	user := ""
+	if target == "" || nonInteractive {
+		return importedServer{}, "", false
+	}
+	if forcedUser != "" {
+		res.User = forcedUser
+	}
+	return res, target, true
+}
+
+func normalizeTarget(target string, res importedServer) (importedServer, bool) {
+	user := res.User
 	host := target
 	if at := strings.LastIndex(target, "@"); at > 0 && at+1 < len(target) {
 		user = target[:at]
@@ -442,7 +449,7 @@ func parseSSHCommand(line string) (importedServer, bool) {
 	if h, p, err := net.SplitHostPort(host); err == nil {
 		host = h
 		if parsed, convErr := strconv.Atoi(p); convErr == nil {
-			port = parsed
+			res.Port = parsed
 		}
 	}
 	host = strings.Trim(host, "[]")
@@ -450,12 +457,11 @@ func parseSSHCommand(line string) (importedServer, bool) {
 		return importedServer{}, false
 	}
 	if user == "" {
-		user = forcedUser
-	}
-	if user == "" {
 		user = defaultSSHUser()
 	}
-	return importedServer{Host: host, User: user, Port: port, KeyPath: keyPath}, true
+	res.Host = host
+	res.User = user
+	return res, true
 }
 
 func deriveServerName(e importedServer) string {
