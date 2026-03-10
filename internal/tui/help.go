@@ -15,5 +15,6 @@ const helpText = `Keys:
   K             : pubkey manager
   v             : toggle System VPN (global)
   *             : toggle masking
+  H             : toggle helper wrapping
   ?             : toggle help
   q or Esc      : quit`

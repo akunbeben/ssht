@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/akunbeben/ssht/internal/config"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type profileSwitchState struct {
@@ -60,10 +61,10 @@ func (ps *profileSwitchState) selected() string {
 	return ps.names[ps.index]
 }
 
-func (ps *profileSwitchState) view() string {
-	var b strings.Builder
+func (ps *profileSwitchState) view(width, height int, helperWrapped bool) string {
+	var body strings.Builder
 
-	b.WriteString(titleStyle.Render("Switch Profile") + "\n\n")
+	body.WriteString(titleStyle.Render("Switch Profile") + "\n\n")
 
 	for i, name := range ps.names {
 		cursor := "  "
@@ -81,11 +82,21 @@ func (ps *profileSwitchState) view() string {
 		} else {
 			label = dimStyle.Render(label)
 		}
-		b.WriteString(cursor + label + "\n")
+		body.WriteString(cursor + label + "\n")
 	}
 
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("j/k: navigate · Enter: switch · Esc: cancel"))
+	help := "j/k: navigate · Enter: switch · Esc: cancel"
+	helpStyleWrap := helpStyle.Copy().Width(width)
+	if !helperWrapped {
+		help = truncate(help, width)
+		helpStyleWrap = helpStyleWrap.MaxHeight(1)
+	}
+	renderedHelp := helpStyleWrap.Render(help)
 
-	return b.String()
+	bodyContent := body.String()
+	gap := height - lipgloss.Height(bodyContent) - lipgloss.Height(renderedHelp)
+	if gap > 0 {
+		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
+	}
+	return bodyContent + "\n\n" + renderedHelp
 }

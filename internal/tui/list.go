@@ -7,14 +7,87 @@ import (
 	"github.com/akunbeben/ssht/internal/config"
 )
 
-func renderListHeader() string {
-	header := fmt.Sprintf("  %-20s %-20s %-10s %-5s %-15s %s", "NAME", "HOST", "USER", "PORT", "VPN", "TAGS")
-	return dimStyle.Render(header)
+func renderListHeader(width int) string {
+	cols := calculateColumnWidths(width)
+	var parts []string
+	if cols.name > 0 {
+		parts = append(parts, fmt.Sprintf("%-*s", cols.name, "NAME"))
+	}
+	if cols.host > 0 {
+		parts = append(parts, fmt.Sprintf("%-*s", cols.host, "HOST"))
+	}
+	if cols.user > 0 {
+		parts = append(parts, fmt.Sprintf("%-*s", cols.user, "USER"))
+	}
+	if cols.port > 0 {
+		parts = append(parts, fmt.Sprintf("%-*s", cols.port, "PORT"))
+	}
+	if cols.vpn > 0 {
+		parts = append(parts, fmt.Sprintf("%-*s", cols.vpn, "VPN"))
+	}
+	if cols.showTags {
+		parts = append(parts, "TAGS")
+	}
+	header := "  " + strings.Join(parts, " ")
+	return dimStyle.Render(truncate(header, width))
 }
 
-func renderServerRow(s config.Server, profileVPN *config.VPNConf, selected bool, masked bool) string {
+type columnWidths struct {
+	name, host, user, port, vpn int
+	showTags                    bool
+}
+
+func calculateColumnWidths(width int) columnWidths {
+	// Base widths: 20, 20, 10, 5, 15
+	// Total with spaces: 2 + 20 + 1 + 20 + 1 + 10 + 1 + 5 + 1 + 15 + 1 = 77
+	w := width - 2 // left padding
+
+	res := columnWidths{
+		name:     20,
+		host:     20,
+		user:     10,
+		port:     5,
+		vpn:      15,
+		showTags: true,
+	}
+
+	if width < 110 {
+		res.showTags = false
+	}
+	if width < 80 {
+		res.vpn = 0 // Hide VPN or make it very small? Let's try 0 for now
+	}
+	if width < 60 {
+		res.port = 0
+		res.user = 8
+	}
+	if width < 45 {
+		res.host = 15
+		res.name = 15
+	}
+
+	// Dynamic scaling to fit width
+	total := res.name + res.host + res.user + res.port + res.vpn + 5 // 5 spaces
+	if total > w && w > 20 {
+		scale := float64(w-5) / float64(total-5)
+		res.name = max(int(float64(res.name)*scale), 10)
+		res.host = max(int(float64(res.host)*scale), 10)
+		if res.user > 0 {
+			res.user = max(int(float64(res.user)*scale), 5)
+		}
+		if res.vpn > 0 {
+			res.vpn = max(int(float64(res.vpn)*scale), 5)
+		}
+	}
+
+	return res
+}
+
+func renderServerRow(s config.Server, profileVPN *config.VPNConf, selected bool, masked bool, width int) string {
+	cols := calculateColumnWidths(width)
+
 	tags := ""
-	if len(s.Tags) > 0 {
+	if cols.showTags && len(s.Tags) > 0 {
 		tags = "[" + strings.Join(s.Tags, ",") + "]"
 	}
 	port := s.Port
@@ -54,16 +127,36 @@ func renderServerRow(s config.Server, profileVPN *config.VPNConf, selected bool,
 		}
 	}
 
-	name := truncate(s.Name, 20)
-	hostDisplay := truncate(host, 20)
-	userDisplay := truncate(user, 10)
-	vpnDisplay = truncate(vpnDisplay, 15)
+	name := truncate(s.Name, cols.name)
+	hostDisplay := truncate(host, cols.host)
+	userDisplay := truncate(user, cols.user)
+	vpnDisplay = truncate(vpnDisplay, cols.vpn)
 
-	row := fmt.Sprintf("%-20s %-20s %-10s %-5s %-15s %s", name, hostDisplay, userDisplay, portDisplay, vpnDisplay, tags)
-	if selected {
-		return selectedStyle.Render("> " + row)
+	var rowParts []string
+	if cols.name > 0 {
+		rowParts = append(rowParts, fmt.Sprintf("%-*s", cols.name, name))
 	}
-	return "  " + row
+	if cols.host > 0 {
+		rowParts = append(rowParts, fmt.Sprintf("%-*s", cols.host, hostDisplay))
+	}
+	if cols.user > 0 {
+		rowParts = append(rowParts, fmt.Sprintf("%-*s", cols.user, userDisplay))
+	}
+	if cols.port > 0 {
+		rowParts = append(rowParts, fmt.Sprintf("%-*s", cols.port, portDisplay))
+	}
+	if cols.vpn > 0 {
+		rowParts = append(rowParts, fmt.Sprintf("%-*s", cols.vpn, vpnDisplay))
+	}
+	if cols.showTags {
+		rowParts = append(rowParts, tags)
+	}
+
+	row := strings.Join(rowParts, " ")
+	if selected {
+		return selectedStyle.Render("> " + truncate(row, width-2))
+	}
+	return "  " + truncate(row, width-2)
 }
 
 func truncate(s string, limit int) string {

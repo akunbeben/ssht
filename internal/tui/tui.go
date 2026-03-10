@@ -71,6 +71,7 @@ type model struct {
 	moveNewName       textinput.Model
 	vpnInput          textinput.Model
 	masked            bool
+	helperWrapped     bool
 
 	width  int
 	height int
@@ -79,14 +80,15 @@ type model struct {
 
 func Run(cfg *config.Config, profileName string, profile config.Profile) (Action, error) {
 	m := model{
-		cfg:         cfg,
-		profileName: profileName,
-		profile:     profile,
-		servers:     profile.Servers,
-		filtered:    profile.Servers,
-		action:      Action{Type: ActionNone},
-		statusStyle: helpStyle,
-		masked:      cfg.PrivacyMode,
+		cfg:           cfg,
+		profileName:   profileName,
+		profile:       profile,
+		servers:       profile.Servers,
+		filtered:      profile.Servers,
+		action:        Action{Type: ActionNone},
+		statusStyle:   helpStyle,
+		masked:        cfg.PrivacyMode,
+		helperWrapped: cfg.HelperWrapped,
 	}
 	prog := tea.NewProgram(&m, tea.WithAltScreen())
 	if _, err := prog.Run(); err != nil {
@@ -233,6 +235,15 @@ func (m *model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 	case "K":
 		m.mode = modePubkey
 		m.refreshPubkeys()
+	case "H":
+		m.helperWrapped = !m.helperWrapped
+		m.cfg.HelperWrapped = m.helperWrapped
+		_ = config.Save(m.cfg)
+		state := "off"
+		if m.helperWrapped {
+			state = "on"
+		}
+		return m, m.setStatus("✓ helper wrapping "+state, successStyle)
 	case "v":
 		if m.profile.VPN == nil {
 			m.vpnInput = newVPNInput()
@@ -512,6 +523,7 @@ func (m *model) View() string {
 	if !m.ready {
 		return "loading..."
 	}
+	innerW, innerH := m.innerSize()
 	switch m.mode {
 	case modeHelp:
 		return m.renderFullScreen(titleStyle.Render("ssht help") + "\n\n" + helpText)
@@ -519,27 +531,28 @@ func (m *model) View() string {
 		return m.pubkeyView()
 	case modeForm:
 		if m.form != nil {
-			content := m.form.view()
+			errMsg := ""
 			if m.err != nil {
-				content += "\n" + errorStyle.Render("✗ "+m.err.Error())
+				errMsg = m.err.Error()
 			}
+			content := m.form.view(innerW, innerH, errMsg, m.helperWrapped)
 			return m.renderFullScreen(content)
 		}
 	case modeConfirmDelete:
 		return m.confirmDeleteView()
 	case modeProfileSwitch:
 		if m.profileSwitch != nil {
-			content := m.profileSwitch.view()
+			content := m.profileSwitch.view(innerW, innerH, m.helperWrapped)
 			return m.renderFullScreen(content)
 		}
 	case modeMoveServer:
-		return m.moveServerView()
+		return m.moveServerView(innerW, innerH, m.helperWrapped)
 	case modeMoveNewProfile:
-		return m.moveNewProfileView()
+		return m.moveNewProfileView(innerW, innerH, m.helperWrapped)
 	case modeMoveConfirmOverwrite:
-		return m.moveConfirmOverwriteView()
+		return m.moveConfirmOverwriteView(innerW, innerH, m.helperWrapped)
 	case modeVPNConfig:
-		return m.vpnConfigView()
+		return m.vpnConfigView(innerW, innerH, m.helperWrapped)
 	}
 
 	return m.listView()
@@ -556,44 +569,79 @@ func (m *model) listView() string {
 		searchLine = focusedInputStyle.Render("/ ") + m.search + focusedInputStyle.Render("▏")
 	}
 
+	innerW, innerH := m.innerSize()
+
 	status := m.status
 	if m.err != nil {
 		status = errorStyle.Render("✗ " + m.err.Error())
 	}
+
+	var renderedStatus string
 	if status != "" {
-		status = m.statusStyle.Render(status)
+		renderedStatus = m.renderStatus(status, m.statusStyle, innerW)
 	} else {
-		status = helpStyle.Render("Enter: connect · a: add · e: edit · d: del · p: profile · v: system vpn · *: mask · K: keys · ?: help")
+		helpLines := "Enter: connect · a: add · e: edit · d: del · p: profile · v: system vpn · *: mask · K: keys · H: wrap · ?: help"
+		renderedStatus = m.renderStatus(helpLines, helpStyle, innerW)
 	}
+
+	statusHeight := lipgloss.Height(renderedStatus)
+	bodyHeight := max(innerH-4-statusHeight, 1)
 
 	head := fmt.Sprintf("ssht · profile: %s", m.profileName)
 	foot := fmt.Sprintf("%d servers · VPN: %s", len(m.servers), vpnState)
-	_, innerH := m.innerSize()
-	bodyHeight := max(innerH-5, 1)
 	rows := m.visibleServerRows(bodyHeight)
 
 	content := strings.Join([]string{
 		titleStyle.Render(head),
-		renderListHeader(),
+		renderListHeader(m.width),
 		strings.Join(rows, "\n"),
 		searchLine,
 		dimStyle.Render(foot),
-		status,
+		renderedStatus,
 	}, "\n")
 	return m.renderFullScreen(content)
 }
 
 func (m *model) pubkeyView() string {
-	_, innerH := m.innerSize()
+	innerW, innerH := m.innerSize()
 	bodyHeight := max(innerH-3, 1)
-	lines := m.visiblePubkeyRows(bodyHeight)
-	lines = append(lines, helpStyle.Render("Enter: copy/generate · q: back"))
+
+	helpLine := m.renderStatus("Enter: copy/generate · q: back", helpStyle, innerW)
+	hHelp := lipgloss.Height(helpLine)
+
+	statusLine := ""
+	hStatus := 0
 	if m.status != "" {
-		lines = append(lines, m.statusStyle.Render(m.status))
+		statusLine = m.renderStatus(m.status, m.statusStyle, innerW)
+		hStatus = lipgloss.Height(statusLine)
 	}
+
+	errLine := ""
+	hErr := 0
 	if m.err != nil {
-		lines = append(lines, errorStyle.Render("✗ "+m.err.Error()))
+		errLine = m.renderStatus("✗ "+m.err.Error(), errorStyle, innerW)
+		hErr = lipgloss.Height(errLine)
 	}
-	content := titleStyle.Render("Pubkey Manager") + "\n" + strings.Join(lines, "\n")
+
+	bodyHeight = max(innerH-1-hHelp-hStatus-hErr, 1)
+	lines := m.visiblePubkeyRows(bodyHeight)
+
+	content := titleStyle.Render("Pubkey Manager") + "\n" + strings.Join(lines, "\n") + "\n" + helpLine
+	if statusLine != "" {
+		content += "\n" + statusLine
+	}
+	if errLine != "" {
+		content += "\n" + errLine
+	}
+
 	return m.renderFullScreen(content)
+}
+
+func (m *model) renderStatus(msg string, style lipgloss.Style, width int) string {
+	s := style.Copy().Width(width)
+	if !m.helperWrapped {
+		msg = truncate(msg, width)
+		return s.MaxHeight(1).Render(msg)
+	}
+	return s.Render(msg)
 }

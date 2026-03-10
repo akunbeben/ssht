@@ -2,11 +2,12 @@ package config
 
 // Config is the root config structure.
 type Config struct {
-	LastProfile string             `json:"last_profile"`
-	Profiles    map[string]Profile `json:"profiles"`
-	PrivacyMode bool               `json:"privacy_mode"`
-	SyncEnabled bool               `json:"sync_enabled"`
-	SyncRepo    string             `json:"sync_repo,omitempty"`
+	LastProfile   string             `json:"last_profile"`
+	Profiles      map[string]Profile `json:"profiles"`
+	PrivacyMode   bool               `json:"privacy_mode"`
+	HelperWrapped bool               `json:"helper_wrapped"`
+	SyncEnabled   bool               `json:"sync_enabled"`
+	SyncRepo      string             `json:"sync_repo,omitempty"`
 }
 
 // Profile stores one working context.

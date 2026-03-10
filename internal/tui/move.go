@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/akunbeben/ssht/internal/config"
 )
@@ -151,36 +152,53 @@ func (m *model) handleMoveConfirmOverwriteKey(key string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *model) moveConfirmOverwriteView() string {
+func (m *model) moveConfirmOverwriteView(width, height int, helperWrapped bool) string {
 	if m.moveTarget == nil {
 		return ""
 	}
-	var b strings.Builder
-	b.WriteString(titleStyle.Render("Move Collision") + "\n\n")
-	b.WriteString(warnStyle.Render("  ⚠ Server ") + selectedStyle.Render(m.moveTarget.Name))
-	b.WriteString(warnStyle.Render(" already exists in profile ") + selectedStyle.Render(m.moveTargetProfile))
-	b.WriteString(warnStyle.Render("."))
-	b.WriteString("\n\n")
-	b.WriteString(helpStyle.Render("  Overwrite in target? (y/n)"))
-	return m.renderFullScreen(b.String())
+	var body strings.Builder
+	body.WriteString(titleStyle.Render("Move Collision") + "\n\n")
+	msg := fmt.Sprintf("  ⚠ Server %s already exists in profile %s.", m.moveTarget.Name, m.moveTargetProfile)
+	warnStyleWrap := warnStyle.Copy().Width(width)
+	if !helperWrapped {
+		msg = truncate(msg, width)
+		warnStyleWrap = warnStyleWrap.MaxHeight(1)
+	}
+	body.WriteString(warnStyleWrap.Render(msg))
+	body.WriteString("\n\n")
+
+	help := "Overwrite in target? (y/n)"
+	helpStyleWrap := helpStyle.Copy().Width(width)
+	if !helperWrapped {
+		help = truncate(help, width)
+		helpStyleWrap = helpStyleWrap.MaxHeight(1)
+	}
+	renderedHelp := helpStyleWrap.Render(help)
+
+	bodyContent := body.String()
+	gap := height - lipgloss.Height(bodyContent) - lipgloss.Height(renderedHelp)
+	if gap > 0 {
+		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
+	}
+	return bodyContent + "\n\n" + renderedHelp
 }
 
-func (m *model) moveServerView() string {
+func (m *model) moveServerView(width, height int, helperWrapped bool) string {
 	if m.moveProfiles == nil || m.moveTarget == nil {
 		return ""
 	}
-	var b strings.Builder
-	b.WriteString(titleStyle.Render("Move Server") + "\n\n")
-	b.WriteString("  " + selectedStyle.Render(m.moveTarget.Name))
+	var body strings.Builder
+	body.WriteString(titleStyle.Render("Move Server") + "\n\n")
+	body.WriteString("  " + selectedStyle.Render(m.moveTarget.Name))
 	host := m.moveTarget.Host
 	user := m.moveTarget.User
 	if m.masked {
 		host = strings.Repeat("*", min(len(host), 12))
 		user = strings.Repeat("*", min(len(user), 8))
 	}
-	b.WriteString(dimStyle.Render(fmt.Sprintf("  %s@%s", user, host)))
-	b.WriteString("\n\n")
-	b.WriteString(dimStyle.Render("  Move to:") + "\n\n")
+	body.WriteString(dimStyle.Render(fmt.Sprintf("  %s@%s", user, host)))
+	body.WriteString("\n\n")
+	body.WriteString(dimStyle.Render("  Move to:") + "\n\n")
 
 	realIdx := 0
 	for _, name := range m.moveProfiles.names {
@@ -193,7 +211,7 @@ func (m *model) moveServerView() string {
 			cursor = focusedInputStyle.Render("▸ ")
 			label = selectedStyle.Render(name)
 		}
-		b.WriteString(cursor + label + "\n")
+		body.WriteString(cursor + label + "\n")
 		realIdx++
 	}
 
@@ -203,12 +221,22 @@ func (m *model) moveServerView() string {
 		newCursor = focusedInputStyle.Render("▸ ")
 		newLabel = selectedStyle.Render("+ New profile")
 	}
-	b.WriteString(newCursor + newLabel + "\n")
+	body.WriteString(newCursor + newLabel + "\n")
 
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("j/k: navigate · Enter: move · Esc: cancel"))
+	help := "j/k: navigate · Enter: move · Esc: cancel"
+	helpStyleWrap := helpStyle.Copy().Width(width)
+	if !helperWrapped {
+		help = truncate(help, width)
+		helpStyleWrap = helpStyleWrap.MaxHeight(1)
+	}
+	renderedHelp := helpStyleWrap.Render(help)
 
-	return m.renderFullScreen(b.String())
+	bodyContent := body.String()
+	gap := height - lipgloss.Height(bodyContent) - lipgloss.Height(renderedHelp)
+	if gap > 0 {
+		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
+	}
+	return bodyContent + "\n\n" + renderedHelp
 }
 
 func newMoveProfileInput() textinput.Model {
@@ -250,27 +278,45 @@ func (m *model) handleMoveNewProfileKey(key string, msg tea.Msg) (tea.Model, tea
 	return m, cmd
 }
 
-func (m *model) moveNewProfileView() string {
+func (m *model) moveNewProfileView(width, height int, helperWrapped bool) string {
 	if m.moveTarget == nil {
 		return ""
 	}
-	var b strings.Builder
-	b.WriteString(titleStyle.Render("Move Server") + "\n\n")
-	b.WriteString("  " + selectedStyle.Render(m.moveTarget.Name))
+	var body strings.Builder
+	body.WriteString(titleStyle.Render("Move Server") + "\n\n")
+	body.WriteString("  " + selectedStyle.Render(m.moveTarget.Name))
 	host := m.moveTarget.Host
 	user := m.moveTarget.User
 	if m.masked {
 		host = strings.Repeat("*", min(len(host), 12))
 		user = strings.Repeat("*", min(len(user), 8))
 	}
-	b.WriteString(dimStyle.Render(fmt.Sprintf("  %s@%s", user, host)))
-	b.WriteString("\n\n")
-	b.WriteString(dimStyle.Render("  New profile name:") + "\n\n")
-	b.WriteString("  " + m.moveNewName.View() + "\n\n")
+	body.WriteString(dimStyle.Render(fmt.Sprintf("  %s@%s", user, host)))
+	body.WriteString("\n\n")
+	body.WriteString(dimStyle.Render("  New profile name:") + "\n\n")
+	body.WriteString("  " + m.moveNewName.View() + "\n\n")
 	if m.err != nil {
-		b.WriteString("  " + errorStyle.Render("✗ "+m.err.Error()) + "\n\n")
+		errStyleWrap := errorStyle.Copy().Width(width)
+		errMsg := m.err.Error()
+		if !helperWrapped {
+			errMsg = truncate(errMsg, width)
+			errStyleWrap = errStyleWrap.MaxHeight(1)
+		}
+		body.WriteString(errStyleWrap.Render("✗ "+errMsg) + "\n\n")
 	}
-	b.WriteString(helpStyle.Render("  Enter: create & move · Esc: cancel"))
 
-	return m.renderFullScreen(b.String())
+	help := "Enter: create & move · Esc: cancel"
+	helpStyleWrap := helpStyle.Copy().Width(width)
+	if !helperWrapped {
+		help = truncate(help, width)
+		helpStyleWrap = helpStyleWrap.MaxHeight(1)
+	}
+	renderedHelp := helpStyleWrap.Render(help)
+
+	bodyContent := body.String()
+	gap := height - lipgloss.Height(bodyContent) - lipgloss.Height(renderedHelp)
+	if gap > 0 {
+		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
+	}
+	return bodyContent + "\n\n" + renderedHelp
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 
 	"github.com/akunbeben/ssht/internal/config"
@@ -188,26 +189,47 @@ func (f *formState) toServer() config.Server {
 	}
 }
 
-func (f *formState) view() string {
-	var b strings.Builder
+func (f *formState) view(width, height int, errMsg string, helperWrapped bool) string {
+	var body strings.Builder
 
 	title := "Add Server"
 	if f.editing {
 		title = "Edit Server"
 	}
-	b.WriteString(titleStyle.Render(title) + "\n\n")
+	body.WriteString(titleStyle.Render(title) + "\n\n")
 
 	for i := 0; i < fieldCount; i++ {
+		f.inputs[i].Width = max(width-20, 10)
 		label := formLabelStyle.Render(fieldLabels[i])
 		cursor := "  "
 		if i == f.focus {
 			cursor = focusedInputStyle.Render("▸ ")
 		}
-		b.WriteString(cursor + label + f.inputs[i].View() + "\n")
+		body.WriteString(cursor + label + f.inputs[i].View() + "\n")
 	}
 
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("Tab/↑↓: navigate · Enter: submit · Esc: cancel"))
+	if errMsg != "" {
+		errStyleWrap := errorStyle.Copy().Width(width)
+		if !helperWrapped {
+			errMsg = truncate(errMsg, width)
+			errStyleWrap = errStyleWrap.MaxHeight(1)
+		}
+		body.WriteString("\n" + errStyleWrap.Render("✗ "+errMsg))
+	}
 
-	return b.String()
+	help := "Tab/↑↓: navigate · Enter: submit · Esc: cancel"
+	helpStyleWrap := helpStyle.Copy().Width(width)
+	if !helperWrapped {
+		help = truncate(help, width)
+		helpStyleWrap = helpStyleWrap.MaxHeight(1)
+	}
+	renderedHelp := helpStyleWrap.Render(help)
+
+	// Calculate vertical space to push help to the bottom
+	bodyContent := body.String()
+	gap := height - lipgloss.Height(bodyContent) - lipgloss.Height(renderedHelp)
+	if gap > 0 {
+		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
+	}
+	return bodyContent + "\n\n" + renderedHelp
 }
