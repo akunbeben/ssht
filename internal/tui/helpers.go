@@ -88,15 +88,29 @@ func (m *model) innerSize() (int, int) {
 }
 
 func (m *model) visibleServerRows(height int) []string {
+	lineHeight := 1
+	if m.width < 55 {
+		lineHeight = 2
+	}
+
+	numVisible := height / lineHeight
+	if numVisible == 0 {
+		numVisible = 1
+	}
+
 	if len(m.filtered) == 0 {
 		return padRows([]string{dimStyle.Render("  no servers — press a to add")}, height)
 	}
-	start := max(m.index-height+1, 0)
-	end := min(start+height, len(m.filtered))
+
+	// Calculate viewport
+	start := max(m.index-numVisible+1, 0)
+	end := min(start+numVisible, len(m.filtered))
+
 	rows := make([]string, 0, height)
 	for i := start; i < end; i++ {
 		rows = append(rows, renderServerRow(m.filtered[i], m.profile.VPN, i == m.index, m.masked, m.width))
 	}
+
 	return padRows(rows, height)
 }
 

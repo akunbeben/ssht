@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/akunbeben/ssht/internal/config"
@@ -15,6 +16,10 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Manage multi-device synchronization via Git",
 }
+
+var (
+	syncPullForce bool
+)
 
 var syncSetupCmd = &cobra.Command{
 	Use:   "setup [repo-url]",
@@ -87,7 +92,8 @@ var syncPushCmd = &cobra.Command{
 			return err
 		}
 
-		if err := runGit(dir, "push", "origin", "HEAD"); err != nil {
+		branch := getRemoteBranch(dir)
+		if err := runGit(dir, "push", "origin", "HEAD:"+branch); err != nil {
 			return fmt.Errorf("failed to push: %w", err)
 		}
 
@@ -109,14 +115,58 @@ var syncPullCmd = &cobra.Command{
 			return fmt.Errorf("git not initialized. Run 'ssht sync setup' first")
 		}
 
-		if err := runGit(dir, "pull", "--rebase", "--autostash", "origin", "HEAD"); err != nil {
+		branch := getRemoteBranch(dir)
+
+		if syncPullForce {
+			fmt.Printf("! Force pull: resetting to origin/%s...\n", branch)
 			_ = runGit(dir, "rebase", "--abort")
-			return fmt.Errorf("failed to pull (rebase conflict). Please resolve manualy in %s", dir)
+			_ = runGit(dir, "merge", "--abort")
+
+			if err := runGit(dir, "fetch", "origin", branch); err != nil {
+				return fmt.Errorf("failed to fetch: %w", err)
+			}
+			if err := runGit(dir, "reset", "--hard", "origin/"+branch); err != nil {
+				return fmt.Errorf("failed to reset: %w", err)
+			}
+			// Ensure we are actually on the branch and not detached
+			_ = runGit(dir, "checkout", "-B", branch)
+		} else {
+			if err := runGit(dir, "pull", "--rebase", "--autostash", "origin", branch); err != nil {
+				_ = runGit(dir, "rebase", "--abort")
+				return fmt.Errorf("failed to pull (rebase conflict). Please resolve manualy in %s", dir)
+			}
 		}
 
 		fmt.Println("✓ Configuration pulled successfully")
 		return nil
 	},
+}
+
+func getRemoteBranch(dir string) string {
+	// Try to find default branch on origin
+	out, err := exec.Command("git", "-C", dir, "remote", "show", "origin").Output()
+	if err == nil {
+		lines := strings.Split(string(out), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "HEAD branch:") {
+				parts := strings.Fields(line)
+				if len(parts) >= 3 {
+					return parts[2]
+				}
+			}
+		}
+	}
+
+	// Fallback 1: Current local branch
+	out, err = exec.Command("git", "-C", dir, "branch", "--show-current").Output()
+	if err == nil {
+		curr := strings.TrimSpace(string(out))
+		if curr != "" {
+			return curr
+		}
+	}
+
+	return "main"
 }
 
 func runGit(dir string, args ...string) error {
@@ -131,4 +181,5 @@ func init() {
 	syncCmd.AddCommand(syncSetupCmd)
 	syncCmd.AddCommand(syncPushCmd)
 	syncCmd.AddCommand(syncPullCmd)
+	syncPullCmd.Flags().BoolVarP(&syncPullForce, "force", "f", false, "force overwrite local changes with remote")
 }

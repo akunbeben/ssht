@@ -200,14 +200,26 @@ func (f *formState) view(width, height int, errMsg string, helperWrapped bool) s
 	}
 	body.WriteString(titleStyle.Render(title) + "\n\n")
 
+	isMobile := width < 45
 	for i := 0; i < fieldCount; i++ {
-		f.inputs[i].Width = max(width-20, 10)
-		label := formLabelStyle.Render(fieldLabels[i])
+		f.inputs[i].Width = max(width-2, 10)
+		if !isMobile {
+			f.inputs[i].Width = max(width-20, 10)
+		}
+
+		labelStr := fieldLabels[i]
 		cursor := "  "
 		if i == f.focus {
 			cursor = focusedInputStyle.Render("▸ ")
 		}
-		body.WriteString(cursor + label + f.inputs[i].View() + "\n")
+
+		if isMobile {
+			label := formLabelStackedStyle.Render(labelStr)
+			body.WriteString(cursor + label + "\n" + "  " + f.inputs[i].View() + "\n\n")
+		} else {
+			label := formLabelStyle.Render(labelStr)
+			body.WriteString(cursor + label + f.inputs[i].View() + "\n")
+		}
 	}
 
 	if errMsg != "" {

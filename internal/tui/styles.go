@@ -13,6 +13,7 @@ var (
 	successStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 
 	formLabelStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true).Width(15).Align(lipgloss.Right).PaddingRight(1)
+	formLabelStackedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true).PaddingBottom(0)
 	focusedInputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	blurredInputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	placeholderStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
@@ -20,4 +21,5 @@ var (
 
 	profileActiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
 	statusBarStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Italic(true)
+	dimmedItalicStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Italic(true)
 )

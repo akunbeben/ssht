@@ -3,11 +3,15 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/akunbeben/ssht/internal/config"
 )
 
 func renderListHeader(width int) string {
+	if width < 55 {
+		return ""
+	}
 	cols := calculateColumnWidths(width)
 	var parts []string
 	if cols.name > 0 {
@@ -84,6 +88,10 @@ func calculateColumnWidths(width int) columnWidths {
 }
 
 func renderServerRow(s config.Server, profileVPN *config.VPNConf, selected bool, masked bool, width int) string {
+	if width < 55 {
+		return renderMobileServerRow(s, profileVPN, selected, masked, width)
+	}
+
 	cols := calculateColumnWidths(width)
 
 	tags := ""
@@ -157,6 +165,59 @@ func renderServerRow(s config.Server, profileVPN *config.VPNConf, selected bool,
 		return selectedStyle.Render("> " + truncate(row, width-2))
 	}
 	return "  " + truncate(row, width-2)
+}
+
+func renderMobileServerRow(s config.Server, profileVPN *config.VPNConf, selected bool, masked bool, width int) string {
+	port := s.Port
+	if port == 0 {
+		port = 22
+	}
+
+	vpnDisplay := ""
+	activeVPN := s.VPN
+	if activeVPN == nil {
+		activeVPN = profileVPN
+	}
+	if activeVPN != nil {
+		vType := activeVPN.Type
+		if vType == "" {
+			vType = "wg"
+		}
+		vpnDisplay = vType
+		if s.VPN != nil {
+			vpnDisplay = "*" + vpnDisplay
+		}
+	}
+
+	host := s.Host
+	user := s.User
+	if masked {
+		host = strings.Repeat("*", min(len(host), 12))
+		user = strings.Repeat("*", min(len(user), 8))
+	}
+
+	cursor := "  "
+	name := s.Name
+	if selected {
+		cursor = "> "
+		name = selectedStyle.Render(name)
+	}
+
+	line1 := cursor + name
+	if vpnDisplay != "" {
+		padding := width - lipgloss.Width(line1) - lipgloss.Width(vpnDisplay) - 2
+		if padding > 0 {
+			line1 += strings.Repeat(" ", padding) + dimStyle.Render(vpnDisplay)
+		}
+	}
+
+	meta := fmt.Sprintf("%s@%s:%d", user, host, port)
+	if len(s.Tags) > 0 {
+		meta += " [" + strings.Join(s.Tags, ",") + "]"
+	}
+	line2 := "    " + dimmedItalicStyle.Render(truncate(meta, width-4))
+
+	return line1 + "\n" + line2
 }
 
 func truncate(s string, limit int) string {

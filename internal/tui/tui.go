@@ -43,6 +43,24 @@ const (
 	modeVPNConfig
 )
 
+type LayoutMode int
+
+const (
+	LayoutMobile   LayoutMode = iota // Width < 55
+	LayoutCompact                    // 55 <= Width < 110
+	LayoutDesktop                    // Width >= 110
+)
+
+func (m *model) getLayoutMode() LayoutMode {
+	if m.width < 55 {
+		return LayoutMobile
+	}
+	if m.width < 110 {
+		return LayoutCompact
+	}
+	return LayoutDesktop
+}
+
 type model struct {
 	cfg         *config.Config
 	profileName string
@@ -596,21 +614,27 @@ func (m *model) listView() string {
 		renderedStatus = m.renderStatus(helpLines, helpStyle, innerW)
 	}
 
+	header := renderListHeader(m.width)
+	headerHeight := 0
+	if header != "" {
+		headerHeight = 1
+	}
+
 	statusHeight := lipgloss.Height(renderedStatus)
-	bodyHeight := max(innerH-4-statusHeight, 1)
+	bodyHeight := max(innerH-3-headerHeight-statusHeight, 1)
 
 	head := fmt.Sprintf("ssht · profile: %s", m.profileName)
 	foot := fmt.Sprintf("%d servers · VPN: %s", len(m.servers), vpnState)
 	rows := m.visibleServerRows(bodyHeight)
 
-	content := strings.Join([]string{
-		titleStyle.Render(head),
-		renderListHeader(m.width),
-		strings.Join(rows, "\n"),
-		searchLine,
-		dimStyle.Render(foot),
-		renderedStatus,
-	}, "\n")
+	items := []string{titleStyle.Render(head)}
+	if header != "" {
+		items = append(items, header)
+	}
+	items = append(items, strings.Join(rows, "\n"))
+	items = append(items, searchLine, dimStyle.Render(foot), renderedStatus)
+
+	content := strings.Join(items, "\n")
 	return m.renderFullScreen(content)
 }
 
