@@ -75,15 +75,15 @@ type historyImportSummary struct {
 	Skipped int
 }
 
-func autoImportHistory(cfg *config.Config, profileName string) (historyImportSummary, error) {
+func findHistoryCandidates(cfg *config.Config, profileName string) ([]importedServer, error) {
 	profile, ok := cfg.Profiles[profileName]
 	if !ok {
-		return historyImportSummary{}, fmt.Errorf("profile %q not found", profileName)
+		return nil, fmt.Errorf("profile %q not found", profileName)
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return historyImportSummary{}, nil
+		return nil, nil
 	}
 
 	allEntries := make([]importedServer, 0)
@@ -107,10 +107,61 @@ func autoImportHistory(cfg *config.Config, profileName string) (historyImportSum
 	}
 
 	if len(allEntries) == 0 {
-		return historyImportSummary{}, nil
+		return nil, nil
 	}
 
-	return mergeImportedServers(cfg, profileName, profile, allEntries, true)
+	// Filter out already existing or skipped
+	existingByEndpoint := make(map[string]struct{}, len(profile.Servers))
+	for _, s := range profile.Servers {
+		port := s.Port
+		if port == 0 {
+			port = 22
+		}
+		existingByEndpoint[endpointKey(s.User, s.Host, port)] = struct{}{}
+	}
+
+	exceptions := make(map[string]struct{}, len(profile.ImportExceptions))
+	for _, ex := range profile.ImportExceptions {
+		exceptions[ex] = struct{}{}
+	}
+
+	candidates := make([]importedServer, 0)
+	for _, e := range allEntries {
+		key := endpointKey(e.User, e.Host, e.Port)
+		if _, ok := existingByEndpoint[key]; ok {
+			continue
+		}
+		if _, ok := exceptions[key]; ok {
+			continue
+		}
+		candidates = append(candidates, e)
+	}
+
+	return candidates, nil
+}
+
+func skipImportedServers(cfg *config.Config, profileName string, entries []importedServer) error {
+	profile, ok := cfg.Profiles[profileName]
+	if !ok {
+		return fmt.Errorf("profile %q not found", profileName)
+	}
+
+	for _, e := range entries {
+		key := endpointKey(e.User, e.Host, e.Port)
+		found := false
+		for _, ex := range profile.ImportExceptions {
+			if ex == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			profile.ImportExceptions = append(profile.ImportExceptions, key)
+		}
+	}
+
+	cfg.Profiles[profileName] = profile
+	return config.Save(cfg)
 }
 
 func importServersFromHistory(

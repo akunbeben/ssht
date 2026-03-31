@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -34,10 +35,22 @@ var rootCmd = &cobra.Command{
 		if !ok {
 			return fmt.Errorf("profile %q not found", profileName)
 		}
-		summary, err := autoImportHistory(cfg, profileName)
-		if err == nil && summary.Added > 0 {
-			fmt.Fprintf(cmd.ErrOrStderr(), "auto-import: added %d server(s) from history\n", summary.Added)
-			profile = cfg.Profiles[profileName]
+		candidates, err := findHistoryCandidates(cfg, profileName)
+		if err == nil && len(candidates) > 0 {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Found %d new server(s) in shell history.\n", len(candidates))
+			if importHistoryPrompt(fmt.Sprintf("Import them to profile %q? [y/N] ", profileName)) {
+				summary, err := mergeImportedServers(cfg, profileName, profile, candidates, true)
+				if err == nil && summary.Added > 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(), "✓ imported %d server(s)\n", summary.Added)
+					profile = cfg.Profiles[profileName]
+				}
+			} else {
+				if importHistoryPrompt("Skip these permanently? [y/N] ") {
+					if err := skipImportedServers(cfg, profileName, candidates); err == nil {
+						fmt.Fprintln(cmd.ErrOrStderr(), "✓ servers added to skip list")
+					}
+				}
+			}
 		}
 
 		for {
@@ -108,4 +121,12 @@ func sortedProfileNames(cfg *config.Config) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func importHistoryPrompt(label string) bool {
+	fmt.Fprintf(os.Stderr, "%s", label)
+	reader := bufio.NewReader(os.Stdin)
+	ans, _ := reader.ReadString('\n')
+	ans = strings.ToLower(strings.TrimSpace(ans))
+	return ans == "y" || ans == "yes"
 }
