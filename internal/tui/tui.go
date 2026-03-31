@@ -267,6 +267,18 @@ func (m *model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 		f := newFormState(false, nil)
 		m.form = &f
 		m.mode = modeForm
+	case "c":
+		if len(m.filtered) == 0 {
+			return m, m.setStatus("no server to copy", errorStyle)
+		}
+		m.clearStatus()
+		sel := m.filtered[m.index]
+		copy := sel
+		copy.ID = ""
+		copy.Name = sel.Name + " (copy)"
+		f := newFormState(false, &copy)
+		m.form = &f
+		m.mode = modeForm
 	case "e":
 		if len(m.filtered) == 0 {
 			return m, m.setStatus("no server to edit", errorStyle)
@@ -580,7 +592,7 @@ func (m *model) listView() string {
 	if status != "" {
 		renderedStatus = m.renderStatus(status, m.statusStyle, innerW)
 	} else {
-		helpLines := "Enter: connect · a: add · e: edit · d: del · p: profile · v: system vpn · *: mask · K: keys · H: wrap · ?: help"
+		helpLines := "Enter: connect · a: add · c: copy · e: edit · d: del · p: profile · v: system vpn · *: mask · K: keys · H: wrap · ?: help"
 		renderedStatus = m.renderStatus(helpLines, helpStyle, innerW)
 	}
 

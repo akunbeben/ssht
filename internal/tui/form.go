@@ -63,8 +63,10 @@ func newFormState(editing bool, s *config.Server) formState {
 	}
 	f.inputs[fieldPort].Placeholder = "22"
 
-	if editing && s != nil {
-		f.editID = s.ID
+	if s != nil {
+		if editing {
+			f.editID = s.ID
+		}
 		f.inputs[fieldName].SetValue(s.Name)
 		f.inputs[fieldHost].SetValue(s.Host)
 		if s.Port != 0 {

@@ -72,7 +72,7 @@ Download the raw binary for your platform from the [Latest Releases](https://git
 | Enter | Connect to server |
 | * | Toggle Privacy Masking (Saves as default) |
 | p | Switch Profile |
-| a / e / d | Add / Edit / Delete server |
+| a / c / e / d | Add / Copy / Edit / Delete server |
 | m | Move server between profiles |
 | v | Toggle Profile-level VPN |
 | K | Pubkey Manager |

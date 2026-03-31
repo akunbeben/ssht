@@ -8,6 +8,7 @@ const helpText = `Keys:
   /             : search
   Enter         : connect
   a             : add server
+  c             : copy server
   e             : edit server
   d             : delete server
   m             : move to profile
