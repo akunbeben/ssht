@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"strings"
+	"time"
 
 	"github.com/akunbeben/ssht/internal/config"
 	"golang.zx2c4.com/wireguard/conn"
@@ -83,7 +84,8 @@ func DialWireguard(confPath, host string, port int) (net.Conn, error) {
 	// If host is not an IP, we might need DNS.
 	// Netstack handles DNS if we provided it in dnsIPs.
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	conn, err := tnet.DialContext(ctx, "tcp", target)
 	if err != nil {
 		dev.Close()
