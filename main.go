@@ -11,6 +11,14 @@ import (
 )
 
 func main() {
+	if isVPNServiceInvocation() {
+		if err := cmd.Execute(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -44,4 +52,13 @@ func main() {
 			}
 		}
 	}
+}
+
+func isVPNServiceInvocation() bool {
+	for _, arg := range os.Args[1:] {
+		if arg == "vpn-dial" || arg == "vpn-hub" {
+			return true
+		}
+	}
+	return false
 }

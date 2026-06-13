@@ -108,7 +108,7 @@ func (m *model) vpnConfigView(width, height int, helperWrapped bool) string {
 	}
 	body.WriteString(typeCursor + formLabelStyle.Render("Type") + m.vpnTypeInput.View() + "\n")
 	body.WriteString(confCursor + formLabelStyle.Render("Config") + m.vpnInput.View() + "\n")
-	body.WriteString(dimStyle.Copy().Width(width).Render("Leave type blank for wireguard. Supported types depend on the configured dialer.") + "\n\n")
+	body.WriteString(dimStyle.Copy().Width(width).Render("Leave type blank for wireguard. WireGuard sessions with the same config share one isolated userspace tunnel.") + "\n\n")
 	if m.err != nil {
 		errStyleWrap := errorStyle.Copy().Width(width)
 		errMsg := m.err.Error()

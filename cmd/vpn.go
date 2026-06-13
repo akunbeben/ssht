@@ -49,10 +49,30 @@ var vpnDialCmd = &cobra.Command{
 	},
 }
 
+var vpnHubCmd = &cobra.Command{
+	Use:    "vpn-hub",
+	Short:  "Run a shared userspace VPN hub",
+	Hidden: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		conf, _ := cmd.Flags().GetString("conf")
+		vpnType, _ := cmd.Flags().GetString("type")
+		if conf == "" {
+			return fmt.Errorf("missing required flags")
+		}
+		if vpnType != "" && vpnType != "wireguard" && vpnType != "wg" {
+			return fmt.Errorf("vpn-hub only supports wireguard")
+		}
+		return vpn.RunWireguardHub(conf)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(vpnDialCmd)
+	rootCmd.AddCommand(vpnHubCmd)
 	vpnDialCmd.Flags().String("conf", "", "VPN config path or URI")
 	vpnDialCmd.Flags().String("host", "", "Target host")
 	vpnDialCmd.Flags().String("port", "22", "Target port")
 	vpnDialCmd.Flags().String("type", "wireguard", "VPN type (wireguard, shadowsocks, trojan, openvpn)")
+	vpnHubCmd.Flags().String("conf", "", "VPN config path")
+	vpnHubCmd.Flags().String("type", "wireguard", "VPN type")
 }

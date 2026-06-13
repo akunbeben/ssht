@@ -27,7 +27,7 @@ func keyToHex(key string) (string, error) {
 func Dial(vpnType, confPath, host string, port int) (net.Conn, error) {
 	switch strings.ToLower(vpnType) {
 	case "wireguard", "wg", "":
-		return DialWireguard(confPath, host, port)
+		return DialSharedWireguard(confPath, host, port)
 	case "shadowsocks", "ss":
 		return DialShadowsocks(confPath, host, port)
 	case "trojan":
@@ -40,49 +40,12 @@ func Dial(vpnType, confPath, host string, port int) (net.Conn, error) {
 }
 
 func DialWireguard(confPath, host string, port int) (net.Conn, error) {
-	confPath, err := config.ExpandHome(confPath)
+	dev, tnet, err := newWireguardNet(confPath)
 	if err != nil {
-		return nil, fmt.Errorf("expand home: %w", err)
-	}
-
-	cfg, err := ParseConfig(confPath)
-	if err != nil {
-		return nil, fmt.Errorf("parse config: %w", err)
-	}
-
-	localIPs := parseAddresses(cfg.Address, true)
-	if len(localIPs) == 0 {
-		return nil, fmt.Errorf("no valid Address in [Interface]")
-	}
-	dnsIPs := parseAddresses(cfg.DNS, false)
-
-	tun, tnet, err := netstack.CreateNetTUN(localIPs, dnsIPs, cfg.MTU)
-	if err != nil {
-		return nil, fmt.Errorf("create netstack: %w", err)
-	}
-
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, ""))
-
-	uapi, err := buildUAPI(cfg)
-	if err != nil {
-		dev.Close()
 		return nil, err
 	}
 
-	if err := dev.IpcSet(uapi); err != nil {
-		dev.Close()
-		return nil, fmt.Errorf("configure device: %w", err)
-	}
-
-	if err := dev.Up(); err != nil {
-		dev.Close()
-		return nil, fmt.Errorf("bring up device: %w", err)
-	}
-
 	target := fmt.Sprintf("%s:%d", host, port)
-
-	// If host is not an IP, we might need DNS.
-	// Netstack handles DNS if we provided it in dnsIPs.
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -93,6 +56,49 @@ func DialWireguard(confPath, host string, port int) (net.Conn, error) {
 	}
 
 	return &lazyClosingConn{Conn: conn, dev: dev}, nil
+}
+
+func newWireguardNet(confPath string) (*device.Device, *netstack.Net, error) {
+	confPath, err := config.ExpandHome(confPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("expand home: %w", err)
+	}
+
+	cfg, err := ParseConfig(confPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse config: %w", err)
+	}
+
+	localIPs := parseAddresses(cfg.Address, true)
+	if len(localIPs) == 0 {
+		return nil, nil, fmt.Errorf("no valid Address in [Interface]")
+	}
+	dnsIPs := parseAddresses(cfg.DNS, false)
+
+	tun, tnet, err := netstack.CreateNetTUN(localIPs, dnsIPs, cfg.MTU)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create netstack: %w", err)
+	}
+
+	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, ""))
+
+	uapi, err := buildUAPI(cfg)
+	if err != nil {
+		dev.Close()
+		return nil, nil, err
+	}
+
+	if err := dev.IpcSet(uapi); err != nil {
+		dev.Close()
+		return nil, nil, fmt.Errorf("configure device: %w", err)
+	}
+
+	if err := dev.Up(); err != nil {
+		dev.Close()
+		return nil, nil, fmt.Errorf("bring up device: %w", err)
+	}
+
+	return dev, tnet, nil
 }
 
 func parseAddresses(addrs []string, stripMask bool) []netip.Addr {

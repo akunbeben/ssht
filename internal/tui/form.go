@@ -50,7 +50,7 @@ var fieldHelp = [fieldCount]string{
 	"Optional. Leave empty to let ssh use its default identities.",
 	"Optional comma-separated tags. Search uses these tags.",
 	"Optional server VPN override. Leave blank to use the profile VPN. Blank type defaults to WireGuard when config is set.",
-	"Required only when VPN Type is set. A config without type defaults to WireGuard.",
+	"Required only when VPN Type is set. WireGuard sessions with the same config share one isolated userspace tunnel.",
 	"Optional note. Search uses this text and details show it before connect.",
 }
 
