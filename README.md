@@ -5,17 +5,17 @@
 
 ![ssht Banner](assets/banner.jpeg)
 
-ssht is a high-performance SSH & VPN manager designed for speed, privacy, and true network isolation. It replaces the tedious mess of ~/.ssh/config and manual VPN toggling with a sleek Terminal UI (TUI).
+ssht is an SSH and per-connection VPN manager designed for speed, privacy, and network isolation. It replaces scattered `~/.ssh/config` entries and manual VPN toggling with a focused Terminal UI (TUI).
 
 ## Key Features
 
-### Isolated VPN (Multi-Protocol Support)
-Unlike standard VPN tools that change your global network settings, ssht establishes a User-Space tunnel exclusively for your SSH session.
-- **Multiple Protocols**: Support for WireGuard, ShadowSocks, Trojan, and OpenVPN.
-- **Pure Isolation**: The VPN only affects the SSH connection initiated by ssht. Your browser, Slack, and other apps stay on your local connection.
-- **Zero Sudo**: Works without root privileges for most protocols.
-- **Powered by gVisor**: Uses a full userspace TCP/IP stack for maximum security and transparency.
-- **Per-Server Override**: Set specific VPN configurations for individual servers that override profile settings.
+### Isolated VPN Sessions
+Unlike standard VPN tools that change your global network settings, ssht tunnels only the SSH connections it starts.
+- **WireGuard without sudo**: WireGuard runs in userspace using gVisor netstack. No system tunnel interface or global route changes are required.
+- **Shared isolated WireGuard hub**: Multiple `ssht` instances using the same WireGuard config share one local userspace tunnel, so concurrent tmux panes work without breaking previous sessions.
+- **Other proxy protocols**: ShadowSocks and Trojan are supported as per-connection proxy dialers.
+- **OpenVPN note**: OpenVPN configs are recognized, but isolated OpenVPN dialing is not implemented; use system OpenVPN separately if needed.
+- **Per-server override**: Set a specific VPN config for an individual server, overriding the profile-level VPN.
 
 ### Multi-Device Sync (Git-based)
 Never lose your configuration again.
@@ -24,21 +24,21 @@ Never lose your configuration again.
 - **Auto-Sync**: Automatically pulls changes on startup and pushes on exit if enabled.
 - **Secure**: Designed to work with Private Repositories to keep your host data safe.
 
-### Privacy Masking (Default Persistent)
-Perfect for streaming, recording, or live demos. 
-- Press * to instantly mask sensitive Host IPs, Usernames, and VPN configs.
-- Sticky Settings: Your masking preference is automatically saved to your config, so it's ready exactly how you left it.
+### Privacy Masking
+Perfect for streaming, recording, or live demos.
+- Press `*` to mask sensitive hostnames, usernames, and VPN configs.
+- The masking preference is saved, so ssht opens the same way next time.
 
 ### Smart Workflow
 - Auto-Import: Scans your shell history (zsh, bash, fish) on startup to find your frequent servers.
-- Host-Key Auto-Repair: Detects "Remote Host Identification Has Changed" errors, offers to clean them, and retries the connection automatically.
-- Persistent TUI: Returns you exactly to your previous position in the server list after disconnecting an SSH session.
+- Host-key auto-repair: Detects `REMOTE HOST IDENTIFICATION HAS CHANGED`, removes the stale host key, and retries once.
+- Persistent TUI: Returns to the server list after an SSH session exits.
 
 ### Pro Management
-- Profiles: Group servers into "Production", "Development", or "Personal".
-- Fuzzy Search: Find servers in milliseconds by name, IP, or tags.
-- Key Manager: Generate, list, and copy public keys (K key).
-- Move/Migrate: Easily move servers between profiles with a few keystrokes.
+- Profiles: Group servers into contexts like `production`, `development`, or `personal`.
+- Fuzzy search: Find servers by name, host, user, tag, or note.
+- Key manager: Generate, list, and copy public keys with `K`.
+- Move/migrate: Move servers between profiles from the TUI.
 
 ## Installation
 
@@ -70,18 +70,18 @@ Download the raw binary for your platform from the [Latest Releases](https://git
 | j/k, arrows | Navigate list |
 | / | Fuzzy search |
 | Enter | Connect to server |
-| * | Toggle Privacy Masking (Saves as default) |
+| * | Toggle privacy masking |
 | p | Switch Profile |
 | a / c / e / d | Add / Copy / Edit / Delete server |
 | m | Move server between profiles |
-| v | Toggle Profile-level VPN |
+| v | Configure profile VPN |
 | K | Pubkey Manager |
 | ? | Help Overlay |
 | q / Esc | Quit |
 
 ## Configuration & Sync
 
-Settings are stored in `~/.ssht/` (modularly). You can also use the CLI:
+Settings are stored in `~/.ssht/`. Global settings live in `config.json`; each profile is stored separately in `profiles/{name}.json` to reduce Git merge conflicts.
 
 ### Multi-Device Synchronization
 1. **Setup**: Create a private Git repository and link it:
@@ -93,16 +93,19 @@ Settings are stored in `~/.ssht/` (modularly). You can also use the CLI:
    ssht sync push  # Manual push
    ssht sync pull  # Manual pull
    ```
-   *Note: ssht automatically performs these on TUI startup/exit if sync is setup.*
+   Note: ssht automatically pulls on startup and pushes on exit when sync is enabled.
 
 ### VPN Configurations
-SSHT supports various VPN protocols. You can configure them at the profile level or per-server.
+ssht supports profile-level VPN config and per-server overrides. Press `v` in the TUI to configure the profile VPN, or set a server-specific VPN while adding/editing a server.
 
-#### Supported URIs:
-- **WireGuard**: Path to `.conf` file.
+#### Supported VPN config values
+- **WireGuard**: path to a `.conf` file, for example `~/vpn/wg0.conf`. Concurrent sessions using the same config share one local userspace hub.
 - **ShadowSocks**: `ss://method:password@host:port`
 - **Trojan**: `trojan://password@host:port?sni=server_name&allowInsecure=1`
-- **OpenVPN**: Path to `.ovpn` file (requires system binary).
+- **OpenVPN**: path to `.ovpn` for system-level use; isolated OpenVPN ProxyCommand dialing is not currently implemented.
+
+#### How isolated WireGuard works
+When you connect to a server with a WireGuard VPN configured, ssht launches `ssh` with a hidden `ProxyCommand`. That proxy talks to a local hidden `ssht vpn-hub` process for the WireGuard config. The hub owns one userspace WireGuard device and opens TCP streams through it for each SSH session. System traffic is unaffected.
 
 ### Other Commands
 ```bash
