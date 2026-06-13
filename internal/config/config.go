@@ -33,6 +33,26 @@ func ProfilesDir() (string, error) {
 	return filepath.Join(dir, "profiles"), nil
 }
 
+func ValidateProfileName(name string) error {
+	if name == "" {
+		return fmt.Errorf("profile name is required")
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("profile name %q is not allowed", name)
+	}
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '-' || r == '_' || r == '.':
+		default:
+			return fmt.Errorf("profile name %q may only contain letters, numbers, '.', '_' and '-'", name)
+		}
+	}
+	return nil
+}
+
 func Load() (*Config, error) {
 	cfgPath, err := ConfigPath()
 	if err != nil {
@@ -99,6 +119,12 @@ func Load() (*Config, error) {
 
 func Save(cfg *Config) error {
 	normalize(cfg)
+	for name := range cfg.Profiles {
+		if err := ValidateProfileName(name); err != nil {
+			return err
+		}
+	}
+
 	cfgPath, err := ConfigPath()
 	if err != nil {
 		return err
@@ -135,10 +161,10 @@ func Save(cfg *Config) error {
 		activeProfiles[name+".json"] = true
 		pData, err := json.MarshalIndent(p, "", "  ")
 		if err != nil {
-			continue
+			return fmt.Errorf("marshal profile %q: %w", name, err)
 		}
 		if err := os.WriteFile(pPath, pData, 0o600); err != nil {
-			continue
+			return fmt.Errorf("write profile %q: %w", name, err)
 		}
 	}
 

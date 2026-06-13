@@ -276,27 +276,32 @@ func (r *aeadWriter) Write(b []byte) (int, error) {
 		r.nonce = make([]byte, r.aead.NonceSize())
 	}
 
-	payloadLen := len(b)
-	if payloadLen > 0x3FFF {
-		payloadLen = 0x3FFF
+	written := 0
+	for written < len(b) {
+		payloadLen := len(b) - written
+		if payloadLen > 0x3FFF {
+			payloadLen = 0x3FFF
+		}
+
+		// Write length
+		lenBuf := []byte{byte(payloadLen >> 8), byte(payloadLen)}
+		sealedLen := r.aead.Seal(nil, r.nonce, lenBuf, nil)
+		incrementNonce(r.nonce)
+		if _, err := r.conn.Write(sealedLen); err != nil {
+			return written, err
+		}
+
+		// Write payload
+		chunk := b[written : written+payloadLen]
+		sealedPayload := r.aead.Seal(nil, r.nonce, chunk, nil)
+		incrementNonce(r.nonce)
+		if _, err := r.conn.Write(sealedPayload); err != nil {
+			return written, err
+		}
+		written += payloadLen
 	}
 
-	// Write length
-	lenBuf := []byte{byte(payloadLen >> 8), byte(payloadLen)}
-	sealedLen := r.aead.Seal(nil, r.nonce, lenBuf, nil)
-	incrementNonce(r.nonce)
-	if _, err := r.conn.Write(sealedLen); err != nil {
-		return 0, err
-	}
-
-	// Write payload
-	sealedPayload := r.aead.Seal(nil, r.nonce, b[:payloadLen], nil)
-	incrementNonce(r.nonce)
-	if _, err := r.conn.Write(sealedPayload); err != nil {
-		return 0, err
-	}
-
-	return payloadLen, nil
+	return written, nil
 }
 
 func incrementNonce(nonce []byte) {

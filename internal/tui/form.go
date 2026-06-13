@@ -119,10 +119,8 @@ func (f *formState) validate(existingNames map[string]bool) error {
 		return fmt.Errorf("name is required")
 	}
 	if f.editing {
-		for n := range existingNames {
-			if n == name {
-				continue
-			}
+		if existingNames[name] {
+			return fmt.Errorf("server %q already exists", name)
 		}
 	}
 	if !f.editing {

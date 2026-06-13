@@ -27,6 +27,9 @@ func BuildArgs(s config.Server, vpn *config.VPNConf, privacyMode bool) ([]string
 	}
 
 	if activeVPN != nil {
+		if !isSafeProxyHost(s.Host) {
+			return nil, fmt.Errorf("host %q contains characters that are unsafe for ProxyCommand", s.Host)
+		}
 		executable, err := os.Executable()
 		if err == nil {
 			// On Windows, paths in ProxyCommand need care with backslashes and quotes
@@ -40,12 +43,13 @@ func BuildArgs(s config.Server, vpn *config.VPNConf, privacyMode bool) ([]string
 				vpnType = "wireguard"
 			}
 
-			proxyCmd := fmt.Sprintf("\"%s\" vpn-dial --type \"%s\" --conf \"%s\" --host %%h --port %%p", executable, vpnType, confPath)
-
-			// OpenSSH on Windows sometimes needs double escaping for ProxyCommand quotes
-			if runtime.GOOS == "windows" {
-				proxyCmd = strings.ReplaceAll(proxyCmd, "\"", "\\\"")
-			}
+			proxyCmd := fmt.Sprintf("%s vpn-dial --type %s --conf %s --host %s --port %s",
+				proxyCommandQuote(executable),
+				proxyCommandQuote(vpnType),
+				proxyCommandQuote(confPath),
+				proxyCommandQuote("%h"),
+				proxyCommandQuote("%p"),
+			)
 
 			args = append(args, "-o", fmt.Sprintf("ProxyCommand=%s", proxyCmd))
 		}
@@ -65,7 +69,7 @@ func BuildArgs(s config.Server, vpn *config.VPNConf, privacyMode bool) ([]string
 		args = append(args, "-p", strconv.Itoa(port))
 	}
 
-	args = append(args, fmt.Sprintf("%s@%s", s.User, s.Host))
+	args = append(args, "--", fmt.Sprintf("%s@%s", s.User, s.Host))
 	if privacyMode {
 		args = append(args, "clear; exec $SHELL -l")
 	}
@@ -109,4 +113,30 @@ func connectWithRetry(s config.Server, vpn *config.VPNConf, privacyMode bool, al
 	}
 
 	return err
+}
+
+func proxyCommandQuote(arg string) string {
+	if runtime.GOOS == "windows" {
+		arg = strings.ReplaceAll(arg, `\`, `\\`)
+		arg = strings.ReplaceAll(arg, `"`, `\"`)
+		return `"` + arg + `"`
+	}
+	return `'` + strings.ReplaceAll(arg, `'`, `'\''`) + `'`
+}
+
+func isSafeProxyHost(host string) bool {
+	if host == "" {
+		return false
+	}
+	for _, r := range host {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '.' || r == '-' || r == '_' || r == ':' || r == '[' || r == ']':
+		default:
+			return false
+		}
+	}
+	return true
 }

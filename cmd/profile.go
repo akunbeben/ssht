@@ -42,6 +42,9 @@ var profileNewCmd = &cobra.Command{
 			return err
 		}
 		name := args[0]
+		if err := config.ValidateProfileName(name); err != nil {
+			return err
+		}
 		if _, ok := cfg.Profiles[name]; ok {
 			return fmt.Errorf("profile %q already exists", name)
 		}
@@ -61,6 +64,9 @@ var profileDeleteCmd = &cobra.Command{
 			return err
 		}
 		name := args[0]
+		if err := config.ValidateProfileName(name); err != nil {
+			return err
+		}
 		if _, ok := cfg.Profiles[name]; !ok {
 			return fmt.Errorf("profile %q not found", name)
 		}
@@ -95,6 +101,9 @@ var profileSetVPNCmd = &cobra.Command{
 			return err
 		}
 		name := args[0]
+		if err := config.ValidateProfileName(name); err != nil {
+			return err
+		}
 		profile, ok := cfg.Profiles[name]
 		if !ok {
 			return fmt.Errorf("profile %q not found", name)

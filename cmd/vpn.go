@@ -19,7 +19,10 @@ var vpnDialCmd = &cobra.Command{
 		conf, _ := cmd.Flags().GetString("conf")
 		host, _ := cmd.Flags().GetString("host")
 		portStr, _ := cmd.Flags().GetString("port")
-		port, _ := strconv.Atoi(portStr)
+		port, err := strconv.Atoi(portStr)
+		if err != nil || port <= 0 || port > 65535 {
+			return fmt.Errorf("port must be 1-65535")
+		}
 		vpnType, _ := cmd.Flags().GetString("type")
 
 		if conf == "" || host == "" {

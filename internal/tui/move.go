@@ -259,8 +259,8 @@ func (m *model) handleMoveNewProfileKey(key string, msg tea.Msg) (tea.Model, tea
 		return m, nil
 	case "enter":
 		name := strings.TrimSpace(m.moveNewName.Value())
-		if name == "" {
-			m.err = fmt.Errorf("profile name is required")
+		if err := config.ValidateProfileName(name); err != nil {
+			m.err = err
 			return m, nil
 		}
 		if _, exists := m.cfg.Profiles[name]; exists {
