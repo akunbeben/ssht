@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/akunbeben/ssht/internal/config"
 )
@@ -51,18 +52,28 @@ func (m *model) confirmDeleteView() string {
 	if m.deleteTarget == nil {
 		return ""
 	}
+	innerW, innerH := m.innerSize()
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("Delete Server") + "\n\n")
-	b.WriteString(warnStyle.Render("  ⚠ Delete") + " ")
+	b.WriteString(titleStyle.Render("Delete Server") + "\n")
+	b.WriteString(dimStyle.Render("This removes the server from the current profile and prevents auto-import from adding it back.") + "\n\n")
+	b.WriteString(warnStyle.Render("Delete") + " ")
 	b.WriteString(selectedStyle.Render(m.deleteTarget.Name))
 	b.WriteString(warnStyle.Render("?") + "\n")
-	host := m.deleteTarget.Host
-	user := m.deleteTarget.User
-	if m.masked {
-		host = strings.Repeat("*", min(len(host), 12))
-		user = strings.Repeat("*", min(len(user), 8))
+	b.WriteString(dimStyle.Render(serverAddress(*m.deleteTarget, m.masked, true)) + "\n")
+	if len(m.deleteTarget.Tags) > 0 {
+		b.WriteString(dimStyle.Render("Tags: "+strings.Join(m.deleteTarget.Tags, ", ")) + "\n")
 	}
-	b.WriteString(dimStyle.Render(fmt.Sprintf("  %s@%s:%d", user, host, m.deleteTarget.Port)) + "\n\n")
-	b.WriteString(helpStyle.Render("  y: confirm · n/Esc: cancel"))
-	return m.renderFullScreen(b.String())
+	if strings.TrimSpace(m.deleteTarget.Note) != "" && !m.masked {
+		b.WriteString(dimStyle.Copy().Width(innerW).Render("Note: "+m.deleteTarget.Note) + "\n")
+	}
+	b.WriteString("\n")
+
+	help := "y confirm delete  n/Esc cancel"
+	b.WriteString(helpStyle.Render(truncate(help, innerW)))
+
+	content := b.String()
+	if lipgloss.Height(content) < innerH {
+		content += strings.Repeat("\n", innerH-lipgloss.Height(content))
+	}
+	return m.renderFullScreen(content)
 }

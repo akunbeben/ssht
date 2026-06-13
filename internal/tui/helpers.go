@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -88,8 +89,12 @@ func (m *model) innerSize() (int, int) {
 }
 
 func (m *model) visibleServerRows(height int) []string {
+	return m.visibleServerRowsFor(height, m.width)
+}
+
+func (m *model) visibleServerRowsFor(height, width int) []string {
 	lineHeight := 1
-	if m.width < 55 {
+	if width < 55 {
 		lineHeight = 2
 	}
 
@@ -99,7 +104,7 @@ func (m *model) visibleServerRows(height int) []string {
 	}
 
 	if len(m.filtered) == 0 {
-		return padRows([]string{dimStyle.Render("  no servers — press a to add")}, height)
+		return padRenderedRows([]string{dimStyle.Render("  no servers - press a to add")}, height)
 	}
 
 	// Calculate viewport
@@ -108,28 +113,28 @@ func (m *model) visibleServerRows(height int) []string {
 
 	rows := make([]string, 0, height)
 	for i := start; i < end; i++ {
-		rows = append(rows, renderServerRow(m.filtered[i], m.profile.VPN, i == m.index, m.masked, m.width))
+		rows = append(rows, renderServerRow(m.filtered[i], m.profile.VPN, i == m.index, m.masked, width))
 	}
 
-	return padRows(rows, height)
+	return padRenderedRows(rows, height)
 }
 
 func (m *model) visiblePubkeyRows(height int) []string {
 	items := make([]string, 0, len(m.pubkeys)+1)
 	if len(m.pubkeys) == 0 {
-		items = append(items, dimStyle.Render("  no pubkeys in ~/.ssh"))
+		items = append(items, dimStyle.Render(inactiveCursor+"no pubkeys in ~/.ssh"))
 	} else {
 		for i, path := range m.pubkeys {
-			label := "  " + path
+			label := inactiveCursor + path
 			if i == m.pubIndex {
-				label = selectedStyle.Render("> " + path)
+				label = selectedStyle.Render(activeCursor + path)
 			}
 			items = append(items, label)
 		}
 	}
-	gen := "  + Generate keypair baru"
+	gen := inactiveCursor + "+ Generate new ed25519 keypair"
 	if m.pubIndex == len(m.pubkeys) {
-		gen = selectedStyle.Render("> + Generate keypair baru")
+		gen = selectedStyle.Render(activeCursor + "+ Generate new ed25519 keypair")
 	}
 	items = append(items, gen)
 
@@ -143,6 +148,23 @@ func padRows(rows []string, height int) []string {
 		rows = append(rows, "")
 	}
 	return rows
+}
+
+func padRenderedRows(rows []string, height int) []string {
+	for lipgloss.Height(strings.Join(rows, "\n")) < height {
+		rows = append(rows, "")
+	}
+	return rows
+}
+
+func pinFooter(content, footer string, height int) string {
+	content = strings.TrimRight(content, "\n")
+	footer = strings.TrimRight(footer, "\n")
+	gap := height - lipgloss.Height(content) - lipgloss.Height(footer)
+	if gap < 1 {
+		gap = 1
+	}
+	return content + strings.Repeat("\n", gap) + footer
 }
 
 func max(a, b int) int {

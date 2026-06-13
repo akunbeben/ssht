@@ -32,6 +32,7 @@ type viewMode int
 const (
 	modeList viewMode = iota
 	modeSearch
+	modeActionPalette
 	modeHelp
 	modePubkey
 	modeForm
@@ -46,9 +47,9 @@ const (
 type LayoutMode int
 
 const (
-	LayoutMobile   LayoutMode = iota // Width < 55
-	LayoutCompact                    // 55 <= Width < 110
-	LayoutDesktop                    // Width >= 110
+	LayoutMobile  LayoutMode = iota // Width < 55
+	LayoutCompact                   // 55 <= Width < 110
+	LayoutDesktop                   // Width >= 110
 )
 
 func (m *model) getLayoutMode() LayoutMode {
@@ -71,6 +72,7 @@ type model struct {
 	mode        viewMode
 	pendingG    bool
 	search      string
+	palette     actionPaletteState
 	err         error
 	status      string
 	statusStyle lipgloss.Style
@@ -87,7 +89,9 @@ type model struct {
 	moveProfiles      *profileSwitchState
 	moveTargetProfile string
 	moveNewName       textinput.Model
+	vpnTypeInput      textinput.Model
 	vpnInput          textinput.Model
+	vpnFocus          int
 	masked            bool
 	helperWrapped     bool
 
@@ -142,6 +146,8 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case modeSearch:
 		return m.handleSearchKey(key, msg)
+	case modeActionPalette:
+		return m.handleActionPaletteKey(key, msg)
 	case modePubkey:
 		return m.handlePubkeyKey(key)
 	case modeForm:
@@ -170,7 +176,15 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 	switch key {
-	case "q", "esc", "ctrl+c":
+	case "esc":
+		if m.search != "" {
+			m.search = ""
+			m.filtered = m.servers
+			m.index = 0
+			return m, nil
+		}
+		return m, tea.Quit
+	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "?":
 		m.mode = modeHelp
@@ -180,6 +194,10 @@ func (m *model) handleListKey(key string) (tea.Model, tea.Cmd) {
 		m.pendingG = false
 		m.mode = modeSearch
 		m.search = ""
+		return m, nil
+	case "ctrl+k", ":":
+		m.pendingG = false
+		m.openActionPalette()
 		return m, nil
 	case "*":
 		m.masked = !m.masked
@@ -264,7 +282,8 @@ func (m *model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 		return m, m.setStatus("✓ helper wrapping "+state, successStyle)
 	case "v":
 		if m.profile.VPN == nil {
-			m.vpnInput = newVPNInput()
+			m.vpnTypeInput, m.vpnInput = newVPNInputs()
+			m.vpnFocus = 0
 			m.mode = modeVPNConfig
 			return m, nil
 		}
@@ -331,6 +350,7 @@ func (m *model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 			m.mode = modeMoveNewProfile
 		} else {
 			ps := newProfileSwitchState(m.cfg, m.profileName)
+			ps.index = 0
 			m.moveProfiles = &ps
 			m.mode = modeMoveServer
 		}
@@ -555,6 +575,8 @@ func (m *model) View() string {
 	}
 	innerW, innerH := m.innerSize()
 	switch m.mode {
+	case modeActionPalette:
+		return m.actionPaletteView()
 	case modeHelp:
 		return m.renderFullScreen(titleStyle.Render("ssht help") + "\n\n" + helpText)
 	case modePubkey:
@@ -572,7 +594,7 @@ func (m *model) View() string {
 		return m.confirmDeleteView()
 	case modeProfileSwitch:
 		if m.profileSwitch != nil {
-			content := m.profileSwitch.view(innerW, innerH, m.helperWrapped)
+			content := m.profileSwitch.view(m.cfg, innerW, innerH, m.helperWrapped)
 			return m.renderFullScreen(content)
 		}
 	case modeMoveServer:
@@ -589,60 +611,14 @@ func (m *model) View() string {
 }
 
 func (m *model) listView() string {
-	vpnState := "off"
-	if m.profile.VPN != nil {
-		vpnState = "configured"
-	}
-
-	searchLine := dimStyle.Render("/ to search")
-	if m.mode == modeSearch {
-		searchLine = focusedInputStyle.Render("/ ") + m.search + focusedInputStyle.Render("▏")
-	}
-
-	innerW, innerH := m.innerSize()
-
-	status := m.status
-	if m.err != nil {
-		status = errorStyle.Render("✗ " + m.err.Error())
-	}
-
-	var renderedStatus string
-	if status != "" {
-		renderedStatus = m.renderStatus(status, m.statusStyle, innerW)
-	} else {
-		helpLines := "Enter: connect · a: add · c: copy · e: edit · d: del · p: profile · v: system vpn · *: mask · K: keys · H: wrap · ?: help"
-		renderedStatus = m.renderStatus(helpLines, helpStyle, innerW)
-	}
-
-	header := renderListHeader(m.width)
-	headerHeight := 0
-	if header != "" {
-		headerHeight = 1
-	}
-
-	statusHeight := lipgloss.Height(renderedStatus)
-	bodyHeight := max(innerH-3-headerHeight-statusHeight, 1)
-
-	head := fmt.Sprintf("ssht · profile: %s", m.profileName)
-	foot := fmt.Sprintf("%d servers · VPN: %s", len(m.servers), vpnState)
-	rows := m.visibleServerRows(bodyHeight)
-
-	items := []string{titleStyle.Render(head)}
-	if header != "" {
-		items = append(items, header)
-	}
-	items = append(items, strings.Join(rows, "\n"))
-	items = append(items, searchLine, dimStyle.Render(foot), renderedStatus)
-
-	content := strings.Join(items, "\n")
-	return m.renderFullScreen(content)
+	return m.renderMainView()
 }
 
 func (m *model) pubkeyView() string {
 	innerW, innerH := m.innerSize()
 	bodyHeight := max(innerH-3, 1)
 
-	helpLine := m.renderStatus("Enter: copy/generate · q: back", helpStyle, innerW)
+	helpLine := m.renderStatus("Enter: copy/generate  q: back", helpStyle, innerW)
 	hHelp := lipgloss.Height(helpLine)
 
 	statusLine := ""
@@ -659,10 +635,11 @@ func (m *model) pubkeyView() string {
 		hErr = lipgloss.Height(errLine)
 	}
 
-	bodyHeight = max(innerH-1-hHelp-hStatus-hErr, 1)
+	bodyHeight = max(innerH-4-hHelp-hStatus-hErr, 1)
 	lines := m.visiblePubkeyRows(bodyHeight)
 
-	content := titleStyle.Render("Pubkey Manager") + "\n" + strings.Join(lines, "\n") + "\n" + helpLine
+	header := titleStyle.Render("Public Keys") + "  " + dimStyle.Render(fmt.Sprintf("%d found in ~/.ssh", len(m.pubkeys)))
+	content := header + "\n" + dimStyle.Render("Copy an existing public key or generate a new ed25519 keypair.") + "\n\n" + strings.Join(lines, "\n") + "\n" + helpLine
 	if statusLine != "" {
 		content += "\n" + statusLine
 	}

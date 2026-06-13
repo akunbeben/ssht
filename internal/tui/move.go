@@ -158,7 +158,7 @@ func (m *model) moveConfirmOverwriteView(width, height int, helperWrapped bool) 
 	}
 	var body strings.Builder
 	body.WriteString(titleStyle.Render("Move Collision") + "\n\n")
-	msg := fmt.Sprintf("  ⚠ Server %s already exists in profile %s.", m.moveTarget.Name, m.moveTargetProfile)
+	msg := fmt.Sprintf("Server %s already exists in profile %s.", m.moveTarget.Name, m.moveTargetProfile)
 	warnStyleWrap := warnStyle.Copy().Width(width)
 	if !helperWrapped {
 		msg = truncate(msg, width)
@@ -167,7 +167,7 @@ func (m *model) moveConfirmOverwriteView(width, height int, helperWrapped bool) 
 	body.WriteString(warnStyleWrap.Render(msg))
 	body.WriteString("\n\n")
 
-	help := "Overwrite in target? (y/n)"
+	help := "y overwrite and move  n cancel overwrite  Esc back"
 	helpStyleWrap := helpStyle.Copy().Width(width)
 	if !helperWrapped {
 		help = truncate(help, width)
@@ -188,42 +188,38 @@ func (m *model) moveServerView(width, height int, helperWrapped bool) string {
 		return ""
 	}
 	var body strings.Builder
-	body.WriteString(titleStyle.Render("Move Server") + "\n\n")
-	body.WriteString("  " + selectedStyle.Render(m.moveTarget.Name))
-	host := m.moveTarget.Host
-	user := m.moveTarget.User
-	if m.masked {
-		host = strings.Repeat("*", min(len(host), 12))
-		user = strings.Repeat("*", min(len(user), 8))
-	}
-	body.WriteString(dimStyle.Render(fmt.Sprintf("  %s@%s", user, host)))
+	body.WriteString(titleStyle.Render("Move Server") + "\n")
+	body.WriteString(dimStyle.Render("Move removes the server from this profile and adds it to the target profile.") + "\n\n")
+	body.WriteString("  " + selectedStyle.Render(m.moveTarget.Name) + "  ")
+	body.WriteString(dimStyle.Render(serverAddress(*m.moveTarget, m.masked, true)))
 	body.WriteString("\n\n")
-	body.WriteString(dimStyle.Render("  Move to:") + "\n\n")
+	body.WriteString(dimStyle.Render("  Destination workspace:") + "\n\n")
 
 	realIdx := 0
 	for _, name := range m.moveProfiles.names {
 		if name == m.profileName {
 			continue
 		}
-		cursor := "  "
-		label := dimStyle.Render(name)
+		cursor := inactiveCursor
+		labelText := renderMoveProfileRow(name, m.cfg, width)
+		label := dimStyle.Render(labelText)
 		if realIdx == m.moveProfiles.index {
-			cursor = focusedInputStyle.Render("▸ ")
-			label = selectedStyle.Render(name)
+			cursor = focusedInputStyle.Render(activeCursor)
+			label = selectedStyle.Render(labelText)
 		}
 		body.WriteString(cursor + label + "\n")
 		realIdx++
 	}
 
-	newCursor := "  "
+	newCursor := inactiveCursor
 	newLabel := dimStyle.Render("+ New profile")
 	if m.moveProfiles.index == realIdx {
-		newCursor = focusedInputStyle.Render("▸ ")
+		newCursor = focusedInputStyle.Render(activeCursor)
 		newLabel = selectedStyle.Render("+ New profile")
 	}
 	body.WriteString(newCursor + newLabel + "\n")
 
-	help := "j/k: navigate · Enter: move · Esc: cancel"
+	help := "j/k: navigate  Enter: move  Esc: cancel"
 	helpStyleWrap := helpStyle.Copy().Width(width)
 	if !helperWrapped {
 		help = truncate(help, width)
@@ -284,14 +280,8 @@ func (m *model) moveNewProfileView(width, height int, helperWrapped bool) string
 	}
 	var body strings.Builder
 	body.WriteString(titleStyle.Render("Move Server") + "\n\n")
-	body.WriteString("  " + selectedStyle.Render(m.moveTarget.Name))
-	host := m.moveTarget.Host
-	user := m.moveTarget.User
-	if m.masked {
-		host = strings.Repeat("*", min(len(host), 12))
-		user = strings.Repeat("*", min(len(user), 8))
-	}
-	body.WriteString(dimStyle.Render(fmt.Sprintf("  %s@%s", user, host)))
+	body.WriteString("  " + selectedStyle.Render(m.moveTarget.Name) + "  ")
+	body.WriteString(dimStyle.Render(serverAddress(*m.moveTarget, m.masked, true)))
 	body.WriteString("\n\n")
 	body.WriteString(dimStyle.Render("  New profile name:") + "\n\n")
 	body.WriteString("  " + m.moveNewName.View() + "\n\n")
@@ -305,7 +295,7 @@ func (m *model) moveNewProfileView(width, height int, helperWrapped bool) string
 		body.WriteString(errStyleWrap.Render("✗ "+errMsg) + "\n\n")
 	}
 
-	help := "Enter: create & move · Esc: cancel"
+	help := "Enter: create profile and move  Esc: cancel"
 	helpStyleWrap := helpStyle.Copy().Width(width)
 	if !helperWrapped {
 		help = truncate(help, width)
@@ -319,4 +309,14 @@ func (m *model) moveNewProfileView(width, height int, helperWrapped bool) string
 		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
 	}
 	return bodyContent + "\n\n" + renderedHelp
+}
+
+func renderMoveProfileRow(name string, cfg *config.Config, width int) string {
+	profile := cfg.Profiles[name]
+	vpn := "vpn none"
+	if profile.VPN != nil {
+		vpn = "vpn " + vpnType(profile.VPN)
+	}
+	row := fmt.Sprintf("%-18s %3d servers  %s", name, len(profile.Servers), vpn)
+	return truncate(row, max(width-4, 1))
 }

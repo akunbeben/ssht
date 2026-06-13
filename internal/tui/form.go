@@ -27,19 +27,31 @@ const (
 )
 
 var fieldLabels = [fieldCount]string{
-	"Name", "Host", "Port", "User", "Key", "Tags", "VPN Type", "VPN Conf/URI", "Note",
+	"Name", "Host", "Port", "User", "Key Path", "Tags", "VPN Type", "VPN Config", "Note",
 }
 
 var fieldPlaceholders = [fieldCount]string{
-	"staging-api",
-	"192.168.1.10",
+	"api-prod",
+	"10.0.1.12 or example.com",
 	"22",
-	"ubuntu",
+	"deploy",
 	"~/.ssh/id_ed25519",
-	"be,staging",
-	"wireguard (optional)",
-	"~/wg0.conf or ss://... (optional)",
-	"optional note",
+	"prod,api,customer-x",
+	"wireguard, shadowsocks, trojan, openvpn",
+	"~/wg0.conf, ss://..., trojan://..., or .ovpn",
+	"why this server exists or how to use it",
+}
+
+var fieldHelp = [fieldCount]string{
+	"Short name used for search and selection.",
+	"Hostname or IP only. Do not include user or port here.",
+	"Leave empty for SSH default port 22.",
+	"SSH login user, for example deploy, ubuntu, root, or postgres.",
+	"Optional. Leave empty to let ssh use its default identities.",
+	"Optional comma-separated tags. Search uses these tags.",
+	"Optional server VPN override. Leave blank to use the profile VPN. Blank type defaults to WireGuard when config is set.",
+	"Required only when VPN Type is set. A config without type defaults to WireGuard.",
+	"Optional note. Search uses this text and details show it before connect.",
 }
 
 type formState struct {
@@ -140,8 +152,13 @@ func (f *formState) validate(existingNames map[string]bool) error {
 	if portStr != "" {
 		p, err := strconv.Atoi(portStr)
 		if err != nil || p <= 0 || p > 65535 {
-			return fmt.Errorf("port must be 1–65535")
+			return fmt.Errorf("port must be 1-65535")
 		}
+	}
+	vpnType := strings.TrimSpace(f.inputs[fieldVPNType].Value())
+	vpnPath := strings.TrimSpace(f.inputs[fieldVPNConf].Value())
+	if vpnType != "" && vpnPath == "" {
+		return fmt.Errorf("vpn config is required when vpn type is set")
 	}
 	return nil
 }
@@ -197,6 +214,7 @@ func (f *formState) view(width, height int, errMsg string, helperWrapped bool) s
 		title = "Edit Server"
 	}
 	body.WriteString(titleStyle.Render(title) + "\n\n")
+	body.WriteString(dimStyle.Copy().Width(width).Render("Connection fields first; metadata and VPN override are optional.") + "\n\n")
 
 	isMobile := width < 45
 	for i := 0; i < fieldCount; i++ {
@@ -206,9 +224,9 @@ func (f *formState) view(width, height int, errMsg string, helperWrapped bool) s
 		}
 
 		labelStr := fieldLabels[i]
-		cursor := "  "
+		cursor := inactiveCursor
 		if i == f.focus {
-			cursor = focusedInputStyle.Render("▸ ")
+			cursor = focusedInputStyle.Render(activeCursor)
 		}
 
 		if isMobile {
@@ -229,7 +247,27 @@ func (f *formState) view(width, height int, errMsg string, helperWrapped bool) s
 		body.WriteString("\n" + errStyleWrap.Render("✗ "+errMsg))
 	}
 
-	help := "Tab/↑↓: navigate · Enter: submit · Esc: cancel"
+	preview := f.preview()
+	if preview != "" {
+		previewStyle := helpStyle.Copy().Width(width)
+		if !helperWrapped {
+			preview = truncate(preview, width)
+			previewStyle = previewStyle.MaxHeight(1)
+		}
+		body.WriteString("\n" + previewStyle.Render(preview))
+	}
+
+	hint := fieldHelp[f.focus]
+	if hint != "" {
+		hintStyle := dimStyle.Copy().Width(width)
+		if !helperWrapped {
+			hint = truncate(hint, width)
+			hintStyle = hintStyle.MaxHeight(1)
+		}
+		body.WriteString("\n" + hintStyle.Render(hint))
+	}
+
+	help := "Tab/Up/Down: navigate  Enter: next/save  Esc: cancel"
 	helpStyleWrap := helpStyle.Copy().Width(width)
 	if !helperWrapped {
 		help = truncate(help, width)
@@ -244,4 +282,35 @@ func (f *formState) view(width, height int, errMsg string, helperWrapped bool) s
 		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
 	}
 	return bodyContent + "\n\n" + renderedHelp
+}
+
+func (f *formState) preview() string {
+	user := strings.TrimSpace(f.inputs[fieldUser].Value())
+	host := strings.TrimSpace(f.inputs[fieldHost].Value())
+	if user == "" && host == "" {
+		return ""
+	}
+	if user == "" {
+		user = "user"
+	}
+	if host == "" {
+		host = "host"
+	}
+
+	port := strings.TrimSpace(f.inputs[fieldPort].Value())
+	if port == "" {
+		port = "22"
+	}
+
+	key := "key default"
+	if strings.TrimSpace(f.inputs[fieldKey].Value()) != "" {
+		key = "key set"
+	}
+
+	vpn := "vpn profile/default"
+	if strings.TrimSpace(f.inputs[fieldVPNConf].Value()) != "" || strings.TrimSpace(f.inputs[fieldVPNType].Value()) != "" {
+		vpn = "vpn server override"
+	}
+
+	return fmt.Sprintf("Preview: ssh %s@%s:%s  %s  %s", user, host, port, key, vpn)
 }

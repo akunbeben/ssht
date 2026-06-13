@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -61,21 +62,22 @@ func (ps *profileSwitchState) selected() string {
 	return ps.names[ps.index]
 }
 
-func (ps *profileSwitchState) view(width, height int, helperWrapped bool) string {
+func (ps *profileSwitchState) view(cfg *config.Config, width, height int, helperWrapped bool) string {
 	var body strings.Builder
 
-	body.WriteString(titleStyle.Render("Switch Profile") + "\n\n")
+	body.WriteString(titleStyle.Render("Switch Profile") + "\n")
+	body.WriteString(dimStyle.Render("Profiles are workspaces. Each keeps its own servers and VPN config.") + "\n\n")
 
 	for i, name := range ps.names {
-		cursor := "  "
+		cursor := inactiveCursor
 		active := ""
 		if name == ps.current {
-			active = " ✓"
+			active = " current"
 		}
 
-		label := name + active
+		label := renderProfileRow(name, active, cfg, width)
 		if i == ps.index {
-			cursor = focusedInputStyle.Render("▸ ")
+			cursor = focusedInputStyle.Render(activeCursor)
 			label = selectedStyle.Render(label)
 		} else if name == ps.current {
 			label = profileActiveStyle.Render(label)
@@ -85,7 +87,7 @@ func (ps *profileSwitchState) view(width, height int, helperWrapped bool) string
 		body.WriteString(cursor + label + "\n")
 	}
 
-	help := "j/k: navigate · Enter: switch · Esc: cancel"
+	help := "j/k: navigate  Enter: switch  Esc: cancel"
 	helpStyleWrap := helpStyle.Copy().Width(width)
 	if !helperWrapped {
 		help = truncate(help, width)
@@ -99,4 +101,19 @@ func (ps *profileSwitchState) view(width, height int, helperWrapped bool) string
 		return bodyContent + strings.Repeat("\n", gap) + renderedHelp
 	}
 	return bodyContent + "\n\n" + renderedHelp
+}
+
+func renderProfileRow(name, active string, cfg *config.Config, width int) string {
+	profile, ok := cfg.Profiles[name]
+	serverCount := 0
+	vpn := "vpn none"
+	if ok {
+		serverCount = len(profile.Servers)
+		if profile.VPN != nil {
+			vpn = "vpn " + vpnType(profile.VPN)
+		}
+	}
+
+	label := fmt.Sprintf("%-18s %3d servers  %-14s%s", name, serverCount, vpn, active)
+	return truncate(label, max(width-2, 1))
 }
