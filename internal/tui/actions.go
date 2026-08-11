@@ -108,6 +108,7 @@ func (m *model) paletteActions() []paletteAction {
 	hasSelection := len(m.filtered) > 0
 	return []paletteAction{
 		{Name: "Connect", Description: selectedActionDescription(m, "Open SSH session"), Key: "enter", Enabled: hasSelection},
+		{Name: "SCP Transfer", Description: selectedActionDescription(m, "Copy files to or from selected server"), Key: "S", Enabled: hasSelection},
 		{Name: "Search Servers", Description: "Filter by name, address, user, tag, or note", Key: "/", Enabled: true},
 		{Name: "Add Server", Description: "Create a new SSH target", Key: "a", Enabled: true},
 		{Name: "Edit Server", Description: selectedActionDescription(m, "Edit selected SSH target"), Key: "e", Enabled: hasSelection},

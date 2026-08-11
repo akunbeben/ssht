@@ -33,6 +33,7 @@ Perfect for streaming, recording, or live demos.
 - Auto-Import: Scans your shell history (zsh, bash, fish) on startup to find your frequent servers.
 - Host-key auto-repair: Detects `REMOTE HOST IDENTIFICATION HAS CHANGED`, removes the stale host key, and retries once.
 - Persistent TUI: Returns to the server list after an SSH session exits.
+- SCP transfers: Press `S` to copy files or directories to and from the selected server through its isolated VPN session.
 
 ### Pro Management
 - Profiles: Group servers into contexts like `production`, `development`, or `personal`.
@@ -70,6 +71,7 @@ Download the raw binary for your platform from the [Latest Releases](https://git
 | j/k, arrows | Navigate list |
 | / | Fuzzy search |
 | Enter | Connect to server |
+| S | SCP transfer to/from server |
 | * | Toggle privacy masking |
 | p | Switch Profile |
 | a / c / e / d | Add / Copy / Edit / Delete server |
@@ -106,6 +108,9 @@ ssht supports profile-level VPN config and per-server overrides. Press `v` in th
 
 #### How isolated WireGuard works
 When you connect to a server with a WireGuard VPN configured, ssht launches `ssh` with a hidden `ProxyCommand`. That proxy talks to a local hidden `ssht vpn-hub` process for the WireGuard config. The hub owns one userspace WireGuard device and opens TCP streams through it for each SSH session. System traffic is unaffected.
+
+### SCP Transfers
+Select a server and press `S`. Choose `Download` or `Upload`, then enter the remote and local paths. SCP uses the selected server's key, port, and isolated profile/server VPN automatically; the system-wide VPN does not need to be enabled.
 
 ### Other Commands
 ```bash

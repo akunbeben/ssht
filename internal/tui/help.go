@@ -4,6 +4,7 @@ const helpText = `Command Center:
   Enter         : connect to selected server
   Ctrl+k or :   : open action palette
   /             : search by name, address, user, tag, or note
+  S             : copy files with SCP
   a             : add server
   c             : copy selected server
   e             : edit selected server

@@ -18,13 +18,24 @@ type ActionType string
 const (
 	ActionNone      ActionType = "none"
 	ActionConnect   ActionType = "connect"
+	ActionSCP       ActionType = "scp"
 	ActionToggleVPN ActionType = "toggle_vpn"
+)
+
+type SCPDirection string
+
+const (
+	SCPDownload SCPDirection = "download"
+	SCPUpload   SCPDirection = "upload"
 )
 
 type Action struct {
 	Type        ActionType
 	Server      *config.Server
 	ProfileName string
+	Direction   SCPDirection
+	RemotePath  string
+	LocalPath   string
 }
 
 type viewMode int
@@ -42,6 +53,7 @@ const (
 	modeMoveNewProfile
 	modeMoveConfirmOverwrite
 	modeVPNConfig
+	modeSCP
 )
 
 type LayoutMode int
@@ -92,6 +104,7 @@ type model struct {
 	vpnTypeInput      textinput.Model
 	vpnInput          textinput.Model
 	vpnFocus          int
+	scp               *scpState
 	masked            bool
 	helperWrapped     bool
 
@@ -164,6 +177,8 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleMoveConfirmOverwriteKey(key)
 	case modeVPNConfig:
 		return m.handleVPNConfigKey(key, msg)
+	case modeSCP:
+		return m.handleSCPKey(key, msg)
 	case modeHelp:
 		if key == "?" || key == "q" || key == "esc" {
 			m.mode = modeList
@@ -271,6 +286,14 @@ func (m *model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 	case "K":
 		m.mode = modePubkey
 		m.refreshPubkeys()
+	case "S":
+		if len(m.filtered) == 0 {
+			return m, m.setStatus("no server selected", errorStyle)
+		}
+		m.clearStatus()
+		m.err = nil
+		m.scp = newSCPState()
+		m.mode = modeSCP
 	case "H":
 		m.helperWrapped = !m.helperWrapped
 		m.cfg.HelperWrapped = m.helperWrapped
@@ -605,6 +628,10 @@ func (m *model) View() string {
 		return m.moveConfirmOverwriteView(innerW, innerH, m.helperWrapped)
 	case modeVPNConfig:
 		return m.vpnConfigView(innerW, innerH, m.helperWrapped)
+	case modeSCP:
+		if m.scp != nil {
+			return m.scpView(innerW, innerH, m.helperWrapped)
+		}
 	}
 
 	return m.listView()

@@ -81,6 +81,16 @@ var rootCmd = &cobra.Command{
 					fmt.Fprintf(os.Stderr, "Press Enter to continue...")
 					bufio.NewReader(os.Stdin).ReadString('\n')
 				}
+			case tui.ActionSCP:
+				if action.Server == nil {
+					return errors.New("no server selected")
+				}
+				upload := action.Direction == tui.SCPUpload
+				if err := ssh.Copy(*action.Server, profile.VPN, action.RemotePath, action.LocalPath, upload); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					fmt.Fprintf(os.Stderr, "Press Enter to continue...")
+					bufio.NewReader(os.Stdin).ReadString('\n')
+				}
 			default:
 				return nil
 			}
