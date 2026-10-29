@@ -52,18 +52,46 @@ func CopyToClipboard(pubkeyPath string) (string, error) {
 }
 
 func Generate(outputPath, comment string) error {
+	cmd, err := GenerateCommand(outputPath, comment)
+	if err != nil {
+		return err
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// GenerateCommand builds the ssh-keygen command without running it.
+func GenerateCommand(outputPath, comment string) (*exec.Cmd, error) {
 	if outputPath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("resolve home dir: %w", err)
+			return nil, fmt.Errorf("resolve home dir: %w", err)
 		}
 		outputPath = filepath.Join(home, ".ssh", "id_ed25519")
 	}
 	if comment == "" {
 		comment = "ssht"
 	}
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", outputPath, "-N", "", "-C", comment)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return exec.Command("ssh-keygen", "-t", "ed25519", "-f", outputPath, "-N", "", "-C", comment), nil
+}
+
+// FreeKeyPath returns the first unused ed25519 key path in ~/.ssh.
+func FreeKeyPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home dir: %w", err)
+	}
+	base := filepath.Join(home, ".ssh", "id_ed25519")
+	for i := 1; ; i++ {
+		path := base
+		if i > 1 {
+			path = fmt.Sprintf("%s_%d", base, i)
+		}
+		_, errKey := os.Stat(path)
+		_, errPub := os.Stat(path + ".pub")
+		if os.IsNotExist(errKey) && os.IsNotExist(errPub) {
+			return path, nil
+		}
+	}
 }

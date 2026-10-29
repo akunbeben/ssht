@@ -14,7 +14,7 @@ make install          # Install to /usr/local/bin (requires sudo)
 make release-snapshot # Dry-run GoReleaser release build
 ```
 
-No test suite beyond `internal/vpn/shadowsocks_test.go`. Run a single test with `go test ./internal/vpn/ -run TestName`.
+Run tests with `go test ./...`, or a single test with `go test ./internal/tui/ -run TestName`.
 
 ## Architecture
 
@@ -25,7 +25,7 @@ No test suite beyond `internal/vpn/shadowsocks_test.go`. Run a single test with 
 - **`main.go`** — Entry point. Triggers auto-sync (git pull before / git push after) when sync is enabled, then delegates to `cmd.Execute()`.
 - **`cmd/`** — Cobra commands. `root.go` launches the TUI by default. `vpn.go` exposes a hidden `vpn-dial` subcommand used as an SSH `ProxyCommand` for isolated per-session VPN tunneling. `server_import.go` parses zsh/bash/fish history to auto-populate server lists.
 - **`internal/config/`** — JSON config stored in `~/.ssht/`. Global state in `config.json`; each profile is a separate file in `profiles/{name}.json` (intentional: reduces Git merge conflicts during sync).
-- **`internal/tui/`** — Bubbletea model in `tui.go` dispatches to sub-views (form, list, move, search, profile_switch, vpn, pubkey, delete). Views are rendered via a central `View()` switch on `tui.currentView`.
+- **`internal/tui/`** — Bubbletea model in `tui.go`. `browse.go` renders the server list; `commands()` drives both shortcuts and the action palette. Modals implement the `dialog` interface (`form`, `picker`, `confirmDialog`) and render over the dimmed list. Data changes go through `ops.go`.
 - **`internal/vpn/`** — Multi-protocol VPN dialers: WireGuard (via gVisor userspace netstack), ShadowSocks, Trojan, OpenVPN. The WireGuard dialer runs entirely in userspace — no root required, no system-level tunnel interface. `dialer.go` selects protocol based on `VPNConf.Type`.
 - **`internal/ssh/`** — Builds `ssh` args and `exec`s the system `ssh` binary. Injects a `ProxyCommand` pointing to `ssht vpn-dial` when a VPN is configured. Server-level VPN overrides profile-level VPN. Also handles host key mismatch auto-repair.
 - **`internal/key/`** — Scans `~/.ssh/` for public keys, generates ed25519 keys, copies to clipboard.

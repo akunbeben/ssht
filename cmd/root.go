@@ -54,7 +54,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		for {
-			action, err := tui.Run(cfg, profileName, profile)
+			action, err := tui.Run(cfg, profileName)
 			if err != nil {
 				return err
 			}

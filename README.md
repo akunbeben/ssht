@@ -69,14 +69,17 @@ Download the raw binary for your platform from the [Latest Releases](https://git
 | Key | Action |
 |---|---|
 | j/k, arrows | Navigate list |
-| / | Fuzzy search |
+| / | Fuzzy search (Enter connects to the top match) |
 | Enter | Connect to server |
+| Ctrl+K or : | Action palette |
 | S | SCP transfer to/from server |
 | * | Toggle privacy masking |
+| o / O | Change sort (date added, name, address) / Reverse sort |
 | p | Switch Profile |
 | a / c / e / d | Add / Copy / Edit / Delete server |
 | m | Move server between profiles |
 | v | Configure profile VPN |
+| V | Toggle system-wide VPN |
 | K | Pubkey Manager |
 | ? | Help Overlay |
 | q / Esc | Quit |
