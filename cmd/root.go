@@ -20,7 +20,7 @@ var profileFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "ssht",
-	Short: "SSH & VPN manager",
+	Short: "Fast SSH launcher and server manager",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := config.Load()
 		if err != nil {

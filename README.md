@@ -5,41 +5,41 @@
 
 ![ssht Banner](assets/banner.jpeg)
 
-ssht is an SSH and per-connection VPN manager designed for speed, privacy, and network isolation. It replaces scattered `~/.ssh/config` entries and manual VPN toggling with a focused Terminal UI (TUI).
+ssht is a fast SSH launcher. Save your servers once, then find one with fuzzy search and press Enter to connect. You never need to remember hosts, users, ports, or keys again.
+
+Need a VPN to reach a server? ssht can tunnel just that SSH connection through WireGuard, ShadowSocks, or Trojan, without touching your system network.
 
 ## Key Features
 
-### Isolated VPN Sessions
-Unlike standard VPN tools that change your global network settings, ssht tunnels only the SSH connections it starts.
-- **WireGuard without sudo**: WireGuard runs in userspace using gVisor netstack. No system tunnel interface or global route changes are required.
-- **Shared isolated WireGuard hub**: Multiple `ssht` instances using the same WireGuard config share one local userspace tunnel, so concurrent tmux panes work without breaking previous sessions.
-- **Other proxy protocols**: ShadowSocks and Trojan are supported as per-connection proxy dialers.
-- **OpenVPN note**: OpenVPN configs are recognized, but isolated OpenVPN dialing is not implemented; use system OpenVPN separately if needed.
-- **Per-server override**: Set a specific VPN config for an individual server, overriding the profile-level VPN.
+### Quick Connect
+- **Fuzzy search**: Find servers by name, host, user, tag, or note. Press Enter to connect to the top match.
+- **Persistent TUI**: Returns to the server list after an SSH session exits.
+- **Auto-import**: Scans your shell history (zsh, bash, fish) on startup to find the servers you already use.
+- **Host-key auto-repair**: Detects `REMOTE HOST IDENTIFICATION HAS CHANGED`, removes the stale host key, and retries once.
+
+### Organize Servers
+- **Profiles**: Group servers into contexts like `production`, `development`, or `personal`.
+- **Move/migrate**: Move servers between profiles from the TUI.
+- **Sorting**: Sort by date added, name, or address.
 
 ### Multi-Device Sync (Git-based)
-Never lose your configuration again.
-- **Git Backend**: Sync your profiles across multiple devices using any Git remote (GitHub, GitLab, etc.).
-- **Modular Config**: Profiles are stored in separate files to minimize merge conflicts.
-- **Auto-Sync**: Automatically pulls changes on startup and pushes on exit if enabled.
-- **Secure**: Designed to work with Private Repositories to keep your host data safe.
+- **Git backend**: Sync your profiles across devices using any Git remote (GitHub, GitLab, etc.).
+- **Modular config**: Each profile is stored in its own file to minimize merge conflicts.
+- **Auto-sync**: Pulls changes on startup and pushes on exit when enabled.
+- **Private by design**: Use a private repository to keep your host data safe.
 
-### Privacy Masking
-Perfect for streaming, recording, or live demos.
-- Press `*` to mask sensitive hostnames, usernames, and VPN configs.
-- The masking preference is saved, so ssht opens the same way next time.
+### Isolated VPN per Connection (optional)
+Only the SSH connections started by ssht go through the VPN. The rest of your system stays on its normal network.
+- **WireGuard without sudo**: Runs in userspace using gVisor netstack. No system tunnel interface or global route changes.
+- **Shared WireGuard hub**: Multiple `ssht` instances using the same WireGuard config share one local tunnel, so concurrent tmux panes keep working.
+- **Other protocols**: ShadowSocks and Trojan are supported as per-connection proxy dialers.
+- **Per-server override**: Set a VPN for one server to override the profile-level VPN.
+- **OpenVPN note**: OpenVPN configs are recognized, but isolated OpenVPN dialing is not implemented. Use system OpenVPN separately if needed.
 
-### Smart Workflow
-- Auto-Import: Scans your shell history (zsh, bash, fish) on startup to find your frequent servers.
-- Host-key auto-repair: Detects `REMOTE HOST IDENTIFICATION HAS CHANGED`, removes the stale host key, and retries once.
-- Persistent TUI: Returns to the server list after an SSH session exits.
-- SCP transfers: Press `S` to copy files or directories to and from the selected server through its isolated VPN session.
-
-### Pro Management
-- Profiles: Group servers into contexts like `production`, `development`, or `personal`.
-- Fuzzy search: Find servers by name, host, user, tag, or note.
-- Key manager: Generate, list, and copy public keys with `K`.
-- Move/migrate: Move servers between profiles from the TUI.
+### More Tools
+- **SCP transfers**: Press `S` to copy files or directories to and from the selected server, through its VPN when one is set.
+- **Key manager**: Generate, list, and copy public keys with `K`.
+- **Privacy masking**: Press `*` to hide hostnames, usernames, and VPN configs while streaming or recording. The setting is saved.
 
 ## Installation
 
