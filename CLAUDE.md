@@ -48,7 +48,7 @@ TUI: Connect with VPN
 
 ### Key TUI Keybindings
 
-`/` search, `Enter` connect, `a/c/e/d` add/copy/edit/delete, `m` move, `p` profile switch, `v` VPN toggle, `K` pubkey manager, `*` privacy mask, `?` help.
+`/` search, `Enter` connect, `a/c/e/d` add/copy/edit/delete, `m` move, `p` profile switch, `v` VPN toggle, `K` pubkey manager, `I` install key on server, `*` privacy mask, `?` help.
 
 ## Release
 

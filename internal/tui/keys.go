@@ -11,7 +11,8 @@ var keys = struct {
 	Up, Down, Top, Bottom, PageUp, PageDown key.Binding
 	Connect, Search, Add, Copy, Edit        key.Binding
 	Delete, Move, SCP, Profiles, VPN        key.Binding
-	VPNToggle, Keys, Privacy, Actions, Help key.Binding
+	VPNToggle, Keys, Install, Privacy       key.Binding
+	Actions, Help                           key.Binding
 	Quit, Clear, KeepFilter, Sort, SortDir  key.Binding
 }{
 	Up:         bind("↑/k", "up", "up", "k"),
@@ -32,6 +33,7 @@ var keys = struct {
 	VPN:        bind("v", "vpn", "v"),
 	VPNToggle:  bind("V", "system vpn", "V"),
 	Keys:       bind("K", "ssh keys", "K"),
+	Install:    bind("I", "install key", "I"),
 	Privacy:    bind("*", "mask", "*"),
 	Sort:       bind("o", "sort", "o"),
 	SortDir:    bind("O", "reverse sort", "O"),

@@ -36,6 +36,7 @@ func (m *model) commands() []command {
 		{keys.VPN, "Profile VPN settings", false, (*model).openVPN},
 		{keys.VPNToggle, "Toggle system VPN", false, (*model).toggleSystemVPN},
 		{keys.Keys, "SSH public keys", false, (*model).openKeys},
+		{keys.Install, "Install SSH key on server", true, (*model).openInstallKey},
 		{keys.Sort, "Change sort", false, (*model).cycleSort},
 		{keys.SortDir, "Reverse sort", false, (*model).reverseSort},
 		{keys.Privacy, "Mask sensitive details", false, (*model).togglePrivacy},

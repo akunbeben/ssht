@@ -128,7 +128,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return m, m.setStatus(statusErr, msg.err.Error())
 		}
+		if msg.install != nil {
+			return m, m.installKey(*msg.install, msg.path)
+		}
 		return m, m.setStatus(statusOK, "Created "+shortPath(msg.path)+".pub")
+	case keyInstalledMsg:
+		return m, m.keyInstalled(msg)
+	case keyVerifiedMsg:
+		return m, m.keyVerified(msg)
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit

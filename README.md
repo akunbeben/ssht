@@ -81,6 +81,7 @@ Download the raw binary for your platform from the [Latest Releases](https://git
 | v | Configure profile VPN |
 | V | Toggle system-wide VPN |
 | K | Pubkey Manager |
+| I | Install SSH key on server (enter the password once) |
 | ? | Help Overlay |
 | q / Esc | Quit |
 

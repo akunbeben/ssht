@@ -277,8 +277,9 @@ func (m *model) openMove() tea.Cmd {
 }
 
 type keyGeneratedMsg struct {
-	path string
-	err  error
+	path    string
+	install *config.Server // install the new key on this server when set
+	err     error
 }
 
 func (m *model) openKeys() tea.Cmd {
@@ -294,7 +295,7 @@ func (m *model) openKeys() tea.Cmd {
 
 	p := newPicker("SSH public keys", items, func(m *model, i int) (dialog, tea.Cmd) {
 		if i == len(paths) {
-			return nil, generateKey
+			return nil, generateKey(nil)
 		}
 		if _, err := k.CopyToClipboard(paths[i]); err != nil {
 			return nil, m.setStatus(statusErr, err.Error())
@@ -306,19 +307,21 @@ func (m *model) openKeys() tea.Cmd {
 	return nil
 }
 
-func generateKey() tea.Msg {
-	path, err := k.FreeKeyPath()
-	if err != nil {
-		return keyGeneratedMsg{err: err}
+func generateKey(install *config.Server) tea.Cmd {
+	return func() tea.Msg {
+		path, err := k.FreeKeyPath()
+		if err != nil {
+			return keyGeneratedMsg{err: err}
+		}
+		cmd, err := k.GenerateCommand(path, "ssht")
+		if err != nil {
+			return keyGeneratedMsg{err: err}
+		}
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return keyGeneratedMsg{err: fmt.Errorf("ssh-keygen: %s", strings.TrimSpace(string(out)))}
+		}
+		return keyGeneratedMsg{path: path, install: install}
 	}
-	cmd, err := k.GenerateCommand(path, "ssht")
-	if err != nil {
-		return keyGeneratedMsg{err: err}
-	}
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return keyGeneratedMsg{err: fmt.Errorf("ssh-keygen: %s", strings.TrimSpace(string(out)))}
-	}
-	return keyGeneratedMsg{path: path}
 }
 
 func (m *model) openPalette() tea.Cmd {

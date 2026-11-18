@@ -198,3 +198,20 @@ func TestSortCyclesAndPersists(t *testing.T) {
 		t.Fatalf("persisted sort = %q desc=%v err=%v", loaded.SortBy, loaded.SortDesc, err)
 	}
 }
+
+func TestKeyInstallSavesKeyOnlyAfterVerify(t *testing.T) {
+	m := testModel(t)
+	job := keyJob{profile: "work", server: m.profile().Servers[0], keyPath: "/keys/id_ed25519"}
+
+	m.Update(keyInstalledMsg{job: job, err: "Permission denied"})
+	m.Update(keyVerifiedMsg{job: job, err: "Permission denied (publickey)"})
+	if got := m.profile().Servers[0].KeyPath; got != "" {
+		t.Fatalf("KeyPath = %q after failure, want empty", got)
+	}
+
+	m.profileName = "home" // user switched profile while the check ran
+	m.Update(keyVerifiedMsg{job: job})
+	if got := m.cfg.Profiles["work"].Servers[0].KeyPath; got != "/keys/id_ed25519" {
+		t.Fatalf("KeyPath = %q, want /keys/id_ed25519", got)
+	}
+}

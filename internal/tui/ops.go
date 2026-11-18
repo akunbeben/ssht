@@ -105,6 +105,20 @@ func (m *model) upsertServer(s config.Server) tea.Cmd {
 	return cmd
 }
 
+// setServerKey saves keyPath on the server with id in the named profile.
+func (m *model) setServerKey(profile, id, keyPath string) tea.Cmd {
+	p, ok := m.cfg.Profiles[profile]
+	i := slices.IndexFunc(p.Servers, func(x config.Server) bool { return x.ID == id })
+	if !ok || i < 0 {
+		return m.setStatus(statusErr, "Key works, but the server was removed before ssht could save it")
+	}
+	p.Servers = slices.Clone(p.Servers)
+	p.Servers[i].KeyPath = keyPath
+	m.cfg.Profiles[profile] = p
+	m.applyFilter()
+	return m.save(fmt.Sprintf("Key installed. %s logs in without a password now", mask(p.Servers[i].Name, m.masked)))
+}
+
 // removeServer drops s from p and records its endpoint so history import skips it.
 func removeServer(p config.Profile, s config.Server) config.Profile {
 	p.Servers = slices.DeleteFunc(slices.Clone(p.Servers), func(x config.Server) bool { return x.ID == s.ID })
